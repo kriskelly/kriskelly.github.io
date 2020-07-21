@@ -9,11 +9,11 @@
   </author>
   <icon>https://kriskelly.github.io/image/brand/icon-1-1.png</icon>
   <logo>https://kriskelly.github.io/image/brand/icon-2-1.png</logo>
-  <updated>2020-07-21T20:03:47Z</updated>
+  <updated>2020-07-21T22:24:28Z</updated>
   <link rel="self" type="application/atom+xml" href="https://kriskelly.github.io/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://kriskelly.github.io/" hreflang="en-us"/>
   <entry>
-    <title>Part 2: Implementing a GraphQL server</title>
+    <title>Part 2: Implementing a GraphQL server in Go</title>
     <author>
       <name>Kris Kelly</name>
       <uri></uri>
@@ -238,7 +238,7 @@ github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x818
 <p>Be sure to tune in for Part 3, where-in we will integrate Dgraph, a shiny new NoSQL graph database, to store user data and relationships.</p>]]></content>
   </entry>
   <entry>
-    <title>Part 1: Setting up Golang dev environment with Kubernetes and Tilt</title>
+    <title>Part 1: Setting up a Golang development environment with Kubernetes and Tilt</title>
     <author>
       <name>Kris Kelly</name>
       <uri></uri>
@@ -246,9 +246,9 @@ github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x818
     <id>https://kriskelly.github.io/part1-go-k8s/</id>
     <updated>2020-07-21T00:00:00Z</updated>
     <published>2020-07-21T00:00:00Z</published>
-    <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We're going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be <del>desperately confused</del> ok!</p>
-<p>Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> interest for me: <em>dating</em>. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways. So how about instead of a todo app, let's build a dating app! Or at least, let's take a <em>swipe</em> at it (I'm so sorry).</p>
-<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app, but then again, probably not.</p>
+    <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! In this series, we're going to be practicing something called resumé-driven development (RDD), starting with setting up a development environment and continuing through the basics of incorporating several buzzword-y technologies into our app. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be <del>desperately confused</del> good to go!</p>
+<p>Most of these tutorials involve building a todo app. Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> fascination for me: <em>dating</em>. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways. Anyway instead of complaining, let's build a dating app! Or at least, let's take a <em>swipe</em> at it (I'm so sorry).</p>
+<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app (most likely Next.js + Apollo), but then again, probably not.</p>
 <p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique name:</p>
 <pre><code>$ mkdir dating-app-example
 $ cd dating-app-example
@@ -285,10 +285,10 @@ func main() {
 </code></pre><p>You can now run this like so:</p>
 <pre><code>$ go run cmd/api.go
 </code></pre><p>Now open up <code>localhost:3000</code> in your browser. Congratulations, a running program! Even if you're not familiar with Go, this code should be relatively self-explanatory. It specifies a function that runs when you access the server at the root path &quot;/&quot;, and it sends the string &quot;ok&quot; in the response. For a better introduction to the <code>net/http</code> library, Go has excellent <a href="https://golang.org/doc/articles/wiki/#tmp_3">documentation</a>.</p>
-<p>Now that that's done, feel free to take a water break. When you're back, we're going to set up the Kubernetes cluster...</p>
-<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Tilt's main feature as far as I can tell is that it enables a productive dev environment by managing your local Kubernetes cluster and rebuilding containers automatically as you go. Go ahead and follow the <a href="https://docs.tilt.dev/install.html">instructions</a> to install it.</p>
+<p>Now that that's done, feel free to take a water break. We are going to use a number of brain cells for this tutorial, so it's important to stay hydrated. When you're back, we're going to set up the Kubernetes cluster...</p>
+<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Tilt's main feature as far as I can tell is that it enables a productive dev environment by managing your local Kubernetes cluster and rebuilding containers automatically as you go. It's best suited to multi-service architectures, so it's definitely overkill for what we are trying to do right now. Go ahead and follow the <a href="https://docs.tilt.dev/install.html">instructions</a> to install it.</p>
 <p>In order to use Tilt, we need to have a Kubernetes cluster running on our local machine. If you're on Mac, the fastest way to get that running is to install <a href="https://docs.docker.com/docker-for-mac/install/">Docker for Mac</a>. Once you've got that installed, Docker has a setting to enable Kubernetes. Enable that setting, and eventually you should see a &quot;Kubernetes is running&quot; message when you click on the Docker icon at the top of the screen.</p>
-<p>&quot;Why are we using Kubernetes for this dead-simple app?&quot; you may ask. The quick answer is that we certainly don't need to, but it's fun! In fact, one of the nice things about Go is that you can build binaries that run without any dependencies, so we could just continue to compile and run it in our mac terminal as we did above. Given Docker's <a href="https://www.reddit.com/r/docker/comments/bh8rpf/docker_performance_on_macos_vs_native_linux/">abysmal</a> performance on mac, that would probably even save us a few gray hairs.</p>
+<p>&quot;Why are we using Kubernetes for this dead-simple app?&quot; you may ask. The quick answer is that Kubernetes is a required component when practicing resumé-driven development. That said, one of the nice things about Go is that you can build binaries that run without any dependencies, so if you wanted to skip this tutorial, you could just continue to compile and run the app manually in the terminal as we did before. Given Docker's <a href="https://www.reddit.com/r/docker/comments/bh8rpf/docker_performance_on_macos_vs_native_linux/">abysmal</a> performance on mac, that would probably even save us a few gray hairs.</p>
 <p>But that's probably not why you're reading this. The fun starts when we run this app as a Docker container on a local k8s cluster, leveraging Tilt for live updating and k8s for managing our database(s), thus getting us as close as we can to what will eventually be our production environment.</p>
 <p>Now that we've got Kubernetes running, we need to set up our Tilt dev environment. For our single Go service, that consists of three things:</p>
 <ul>
@@ -313,7 +313,7 @@ COPY . .
 RUN go build -o /app/build/api /app/cmd
 
 CMD [&quot;/app/build/api&quot;]
-</code></pre><p>I won't go over the basics of how Docker works, but the gist is that this copies the code over to the image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
+</code></pre><p>I won't go over the basics of how Docker works, but the gist is that this copies the code over to the Docker image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. NOTE: The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
 <p>Next up, we want to add a basic deployment file for our k8s cluster. We'll call it <code>deployments/api.yaml</code>:</p>
 <pre><code>apiVersion: apps/v1
 kind: Deployment
@@ -336,8 +336,8 @@ spec:
           command: [&quot;/app/build/api&quot;]
           ports:
             - containerPort: 3000
-</code></pre><p>This defines a Kubernetes &quot;Deployment&quot;, the concept of which the <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Kubernetes docs</a> will do a much better job of explaining than I can. In a nutshell, we define a container named <code>api</code> that is built using an image we've defined elsewhere called <code>dating-app/api</code>.</p>
-<p>This image name is defined in our <code>Tiltfile</code>, which is a script that orchestrates our dev environment within Kubernetes. We are going to add the following to our <code>Tiltfile</code> in the root directory of the app:</p>
+</code></pre><p>This defines a Kubernetes Deployment, the concept of which the <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Kubernetes docs</a> will do a much better job of explaining than I can. In a nutshell, we define a container named <code>api</code> that is built using an image we've defined in our <code>Tiltfile</code> called <code>dating-app/api</code>.</p>
+<p>The <code>Tiltfile</code> is a script that orchestrates our dev environment within Kubernetes. We are going to add the following to our <code>Tiltfile</code> in the root directory of the app:</p>
 <pre><code>load('ext://restart_process', 'docker_build_with_restart')
 
 k8s_yaml('deployments/api.yaml')
@@ -358,7 +358,7 @@ k8s_resource('api', port_forwards=[3000])
 <li>calls <code>docker_build_with_restart()</code> to specify that we want to build a Docker image called <code>dating-app/api</code> (the name we use in the deployment yaml)</li>
 <li>sets up port-forwarding to make the app accessible via <code>localhost:3000</code></li>
 </ul>
-<p>The <code>load()</code> call at the top enables the <code>docker_build_with_restart()</code> feature, which is an important performance optimization because rebuilding the Docker image on every file change can be extreeeeeeemely slooooooow. Instead, using the <code>live_update</code> argument, we sync file changes with the existing container and rebuild the app within the running container. This makes the development cycle snappy, and in my humble opinion, this should be a default rather than an &quot;extension&quot;, because iterative development in Tilt is pretty slow without it.</p>
+<p>The <code>load()</code> call at the top enables the <code>docker_build_with_restart()</code> feature, which is an important performance optimization because rebuilding the Docker image on every file change can be extremely slow. Instead, using the <code>live_update</code> argument, we sync file changes with the existing container and rebuild the app within the running container. This makes the development cycle snappy, and in my humble opinion, this should be a default rather than an &quot;extension&quot;, because iterative development in Tilt is pretty slow without it.</p>
 <p>So without further ado, let's go ahead and fire up Tilt. Open a new terminal tab for your project and run:</p>
 <p><code>$ tilt up</code></p>
 <p>In the browser, you should see your api container building properly and, once it finishes, the app should be accessible at <code>localhost:3000</code>.</p>
