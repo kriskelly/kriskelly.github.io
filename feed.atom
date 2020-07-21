@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-us">
-  <title>Kris Kelly Writes Things (Title Subject To Change)</title>
+  <title>Kris Kelly&#39;s Shameless Attempt at Personal Branding</title>
   <subtitle></subtitle>
   <id>https://kriskelly.github.io/</id>
   <author>
-    <name>Kris Kelly Writes Things (Title Subject To Change)</name>
+    <name>Kris Kelly&#39;s Shameless Attempt at Personal Branding</name>
     <uri>https://kriskelly.github.io/</uri>
   </author>
   <icon>https://kriskelly.github.io/image/brand/icon-1-1.png</icon>
   <logo>https://kriskelly.github.io/image/brand/icon-2-1.png</logo>
-  <updated>2020-07-21T19:12:37Z</updated>
+  <updated>2020-07-21T19:24:07Z</updated>
   <link rel="self" type="application/atom+xml" href="https://kriskelly.github.io/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://kriskelly.github.io/" hreflang="en-us"/>
   <entry>
