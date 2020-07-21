@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-us">
+  <title>KrisKelly</title>
+  <subtitle></subtitle>
+  <id>https://kriskelly.github.io/</id>
+  <author>
+    <name>KrisKelly</name>
+    <uri>https://kriskelly.github.io/</uri>
+  </author>
+  <icon>https://kriskelly.github.io/image/brand/icon-1-1.png</icon>
+  <logo>https://kriskelly.github.io/image/brand/icon-2-1.png</logo>
+  <updated>2020-07-21T16:10:08Z</updated>
+  <link rel="self" type="application/atom+xml" href="https://kriskelly.github.io/feed.atom" hreflang="en-us"/>
+  <link rel="alternate" type="text/html" href="https://kriskelly.github.io/" hreflang="en-us"/>
+  <entry>
+    <title>Part 2: Implementing a GraphQL server</title>
+    <author>
+      <name>Kris Kelly</name>
+      <uri></uri>
+    </author>
+    <id>https://kriskelly.github.io/part2-go-graphql/</id>
+    <updated>2020-07-21T01:00:00Z</updated>
+    <published>2020-07-21T01:00:00Z</published>
+    <content type="html"><![CDATA[<p>Welcome to Part 2 of this tutorial series. In the <a href="/go-k8s-part1/">last section</a>, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we'll set up a GraphQL server with a couple of example queries and mutations.</p>
+<p>First we are going to add the <a href="https://gqlgen.com/">gqlgen</a> library to our project. They've got a good &quot;Getting Started&quot; tutorial which we will basically be following for the first part of this.</p>
+<pre><code>$ cd dating-app-example
+$ go get github.com/99designs/gqlgen
+</code></pre><p>At this point we could continue following the gqlgen tutorial and run <code>go run github.com/99designs/gqlgen init</code> to initialize the project structure, but since we have our own opinions about how the project should be structured, let's start with a custom config file and use that to generate the code we need.</p>
+<p>Copy the following config into a <code>gqlgen.yml</code> file in the root of the project:</p>
+<pre><code># Where are all the schema files located? globs are supported eg  src/**/*.graphqls
+schema:
+  - internal/graph/*.graphqls
+
+# Where should the generated server code go?
+exec:
+  filename: internal/graph/generated/generated.go
+  package: generated
+
+# Where should any generated models go?
+model:
+  filename: internal/model/models_gen.go
+  package: model
+
+# Where should the resolver implementations go?
+resolver:
+  layout: follow-schema
+  dir: internal/graph
+  package: graph
+
+# gqlgen will search for any type names in the schema in these go packages
+# if they match it will use them, otherwise it will generate them.
+autobind:
+  - &quot;github.com/kriskelly/dating-app-example/internal/model&quot;
+
+# This section declares type mapping between the GraphQL and go type systems
+#
+# The first line in each type will be used as defaults for resolver arguments and
+# modelgen, the others will be allowed when binding to fields. Configure them to
+# your liking
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+
+</code></pre><p>The auto-generated comments in this file do a good job of explaining each setting, but the gist is that we are just modifying the paths to point to <code>internal/graph</code> and <code>internal/model</code> as the locations for our GraphQL resolvers and models, respectively.</p>
+<p>Before we generate any code, let's also specify the GraphQL schema that we want to build by putting the following in <code>internal/graph/schema.graphqls</code>:</p>
+<pre><code>type User {
+  id: ID!
+  name: String!
+  email: String!
+  password: String!
+}
+
+type Query {
+  me: User!
+}
+
+input NewUser {
+  name: String!
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  login(email: String!, password: String!): User!
+  signup(input: NewUser!): User!
+}
+</code></pre><p>This defines enough types, mutations, and queries to get us through a basic signup/login flow for a user.</p>
+<p>One last thing to do before we generate any code is to define our User model. Because we specified the <code>autobind</code> setting in our config file, <code>gqlgen</code> will look for models that we have defined ourselves and use those instead of auto-generating that code. So let's define our own User model first in <code>internal/model/user.go</code>:</p>
+<pre><code>package model
+
+// User model
+type User struct {
+	ID       string `json:&quot;id&quot;`
+	Name     string `json:&quot;name&quot;`
+	Email    string `json:&quot;email&quot;`
+	Password string `json:&quot;password&quot;`
+}
+</code></pre><p>The list of fields here matches what we declared in our GraphQL schema. The JSON annotation names should also match the names of fields in the schema. Now let's generate the code for the resolvers:</p>
+<pre><code>$ go run github.com/99designs/gqlgen
+</code></pre><p>This will generate some files in <code>internal/graph</code>, one of which is <code>schema.resolvers.go</code>. Let's talk a look at this file first. There you'll see some stubs for resolvers, for example:</p>
+<pre><code>func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*model.User, error) {
+	panic(fmt.Errorf(&quot;not implemented&quot;))
+}
+</code></pre><p>This is where the bulk of our resolver logic will go. But let's not worry about that just yet. We've got one more step before we get a live GraphQL server up and running. Let's modify our original <code>api.go</code> file to serve the GraphQL API. Note that this is the same code that gets generated if you had initialized the project using <code>go run github.com/99designs/gqlgen init</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;net/http&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+
+	<span class="s">&#34;github.com/99designs/gqlgen/graphql/handler&#34;</span>
+	<span class="s">&#34;github.com/99designs/gqlgen/graphql/playground&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/graph&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/graph/generated&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">const</span> <span class="nx">defaultPort</span> <span class="p">=</span> <span class="s">&#34;3000&#34;</span>
+
+<span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">port</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="s">&#34;PORT&#34;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">port</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+		<span class="nx">port</span> <span class="p">=</span> <span class="nx">defaultPort</span>
+	<span class="p">}</span>
+
+	<span class="nx">srv</span> <span class="o">:=</span> <span class="nx">handler</span><span class="p">.</span><span class="nf">NewDefaultServer</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nf">NewExecutableSchema</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">Resolvers</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">graph</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">{}}))</span>
+
+	<span class="nx">http</span><span class="p">.</span><span class="nf">Handle</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">,</span> <span class="nx">playground</span><span class="p">.</span><span class="nf">Handler</span><span class="p">(</span><span class="s">&#34;GraphQL playground&#34;</span><span class="p">,</span> <span class="s">&#34;/query&#34;</span><span class="p">))</span>
+	<span class="nx">http</span><span class="p">.</span><span class="nf">Handle</span><span class="p">(</span><span class="s">&#34;/query&#34;</span><span class="p">,</span> <span class="nx">srv</span><span class="p">)</span>
+
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;connect to http://localhost:%s/ for GraphQL playground&#34;</span><span class="p">,</span> <span class="nx">port</span><span class="p">)</span>
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nf">ListenAndServe</span><span class="p">(</span><span class="s">&#34;:&#34;</span><span class="o">+</span><span class="nx">port</span><span class="p">,</span> <span class="kc">nil</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></div><p>We can see from this code that the GraphQL API is served at <code>localhost:3000/query</code>, and we've also now got a GraphQL playground accessible at <code>localhost:3000</code>. Go ahead and open the playground in your browser. Now you should be able to run a query like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-graphql" data-lang="graphql"><span class="kd">query</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">me</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="py">id</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>You should see an &quot;internal system error&quot; message in the response. If you go back to the Tilt console, you can see the <code>panic()</code> error message printed as a long, scary stack trace starting something like this:</p>
+<pre><code>not implemented
+
+goroutine 5 [running]:
+runtime/debug.Stack(0x1, 0x0, 0x0)
+	/usr/local/go/src/runtime/debug/stack.go:24 +0x9d
+runtime/debug.PrintStack()
+	/usr/local/go/src/runtime/debug/stack.go:16 +0x22
+github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x8181c0, 0xc0003549d0, 0xc000022a80, 0x7fcfbf2077d0)
+...
+</code></pre><p>That's because all the resolver calls currently panic. This is good though, because now we have feedback that the system is working end-to-end. Now we can start implementing our resolvers!</p>
+<p>Since we aren't using a real database in our initial implementation, we can use the <code>Resolver</code> struct to maintain state and imitate a user authentication system. Let's start by replacing the contents of our <code>resolver.go</code> file with the following:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">graph</span>
+
+<span class="kn">import</span> <span class="s">&#34;github.com/kriskelly/dating-app-example/internal/model&#34;</span>
+
+<span class="kd">type</span> <span class="nx">Resolver</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">users</span>       <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span>
+	<span class="nx">currentUser</span> <span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">NewResolver</span><span class="p">()</span> <span class="o">*</span><span class="nx">Resolver</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">Resolver</span><span class="p">{</span>
+		<span class="nx">users</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">),</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div><p>This does a couple of things: it adds some attributes to the struct for maintaining state, and it adds an initializer called <code>NewResolver()</code> to ensure that those attributes are initialized correctly. For the map of users, we need to initialize a new empty map using <code>make()</code>.</p>
+<p>Since we need to use the new initializer, go back to <code>api.go</code> and modify the line that generates the GraphQL server so that it looks like the following:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang">	<span class="nx">resolver</span> <span class="o">:=</span> <span class="nx">graph</span><span class="p">.</span><span class="nf">NewResolver</span><span class="p">()</span>
+	<span class="nx">srv</span> <span class="o">:=</span> <span class="nx">handler</span><span class="p">.</span><span class="nf">NewDefaultServer</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nf">NewExecutableSchema</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">Resolvers</span><span class="p">:</span> <span class="nx">resolver</span><span class="p">}))</span>
+</code></pre></div><p>Now let's pop over to where we implement our queries and mutations. Replace the relevant functions with the following code:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">mutationResolver</span><span class="p">)</span> <span class="nf">Login</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">email</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">password</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">user</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">users</span><span class="p">[</span><span class="nx">email</span><span class="p">]</span>
+	<span class="k">if</span> <span class="nx">user</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;Invalid email&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">user</span><span class="p">.</span><span class="nx">Password</span> <span class="o">!=</span> <span class="nx">password</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;Invalid password&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">r</span><span class="p">.</span><span class="nx">currentUser</span> <span class="p">=</span> <span class="nx">user</span>
+	<span class="k">return</span> <span class="nx">user</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">mutationResolver</span><span class="p">)</span> <span class="nf">Signup</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">input</span> <span class="nx">model</span><span class="p">.</span><span class="nx">NewUser</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">newUser</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">{</span>
+		<span class="nx">Name</span><span class="p">:</span>     <span class="nx">input</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span>
+		<span class="nx">Email</span><span class="p">:</span>    <span class="nx">input</span><span class="p">.</span><span class="nx">Email</span><span class="p">,</span>
+		<span class="nx">Password</span><span class="p">:</span> <span class="nx">input</span><span class="p">.</span><span class="nx">Password</span><span class="p">,</span>
+	<span class="p">}</span>
+	<span class="nx">id</span> <span class="o">:=</span> <span class="nx">uuid</span><span class="p">.</span><span class="nf">New</span><span class="p">().</span><span class="nf">String</span><span class="p">()</span>
+	<span class="nx">newUser</span><span class="p">.</span><span class="nx">ID</span> <span class="p">=</span> <span class="nx">id</span>
+	<span class="nx">r</span><span class="p">.</span><span class="nx">users</span><span class="p">[</span><span class="nx">newUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">]</span> <span class="p">=</span> <span class="nx">newUser</span>
+	<span class="k">return</span> <span class="nx">newUser</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">queryResolver</span><span class="p">)</span> <span class="nf">Me</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">user</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">currentUser</span>
+	<span class="k">if</span> <span class="nx">user</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;No current user&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">user</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</code></pre></div><p>You'll see that the <code>Signup()</code> mutation creates a new <code>User</code> instance and caches it in the resolver. <code>Login()</code> does a lookup based on the email address and sets the <code>currentUser</code>, and <code>Me()</code> looks for the current user. All of this is simplified to work without a database or session management, so it goes without saying that you wouldn't do this in a real app. But for demonstration purposes, you get the gist.</p>
+<p>I wanted unique IDs for the users, so I added the <a href="https://github.com/google/uuid">github.com/google/uuid</a> and generated the ID like so:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="nx">id</span> <span class="o">:=</span> <span class="nx">uuid</span><span class="p">.</span><span class="nf">New</span><span class="p">().</span><span class="nf">String</span><span class="p">()</span>
+</code></pre></div><p>This isn't important for this test implementation, so feel free to leave that out.</p>
+<p>Anyway, now you should be able to fire up the GraphQL playground and make some moves. Try a <code>signup()</code> mutation, followed by <code>login()</code> and <code>me()</code>. For example:</p>
+<div class="highlight"><pre class="chroma"><code class="language-graphql" data-lang="graphql"><span class="kd">mutation</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">signup</span><span class="p">(</span><span class="kd">input</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nc">name</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;Foobar&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">email</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo@bar.com&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">password</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo&#34;</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="nc">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c"># Then in a separate call:</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="nc">mutation</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="py">login</span><span class="p">(</span><span class="py">email</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo@bar.com&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">password</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo&#34;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="nc">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c"># Then:</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">query</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">me</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="py">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>If all's well, then you've got a functioning GraphQL server!</p>
+<p>Be sure to tune in for Part 3, where-in we will integrate Dgraph, a shiny new NoSQL graph database, to store user data and relationships.</p>]]></content>
+  </entry>
+  <entry>
+    <title>Part 1: Setting up Golang dev environment with Kubernetes and Tilt</title>
+    <author>
+      <name>Kris Kelly</name>
+      <uri></uri>
+    </author>
+    <id>https://kriskelly.github.io/go-k8s-part1/</id>
+    <updated>2020-07-21T00:00:00Z</updated>
+    <published>2020-07-21T00:00:00Z</published>
+    <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We're going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be ok!</p>
+<p>Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> <del>joy</del> confusion for me: <em>dating</em>. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways! How about instead of a todo app, let's build a dating app! Or at least, let's take a swipe at it <em>(I'm so sorry)</em>.</p>
+<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app, but then again, probably not.</p>
+<p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique name:</p>
+<pre><code>$ mkdir dating-app-example
+$ cd dating-app-example
+</code></pre><p>The next step is to initialize our Go service. First, let's make sure Go is installed. You can install Go by following instructions <a href="https://golang.org/doc/install">here</a>, or install it via <a href="https://brew.sh/">homebrew</a>. Now let's initialize the project:</p>
+<pre><code>$ go mod init github.com/[username]/dating-app-example
+</code></pre><p>To structure the project, I took a few cues from <a href="https://github.com/golang-standards/project-layout">golang-standards/project-layout</a>, with a very simplified version consisting of the following layout:</p>
+<pre><code>$ tree
+.
+├── Dockerfile
+├── Tiltfile
+├── cmd
+│   └── api.go
+├── deployments
+│   └── api.yaml
+├── go.mod
+└── internal
+</code></pre><p>Don't worry about most of these files yet. In terms of the code we are going to write, the file <code>cmd/api.go</code> will be our executable, and all application code will eventually be kept in <code>internal/</code>. Many projects use <code>pkg/</code> for application code, but since we aren't exposing any of this code as an API to be shared with other projects, we can leave it in <code>internal/</code>.</p>
+<p>In the interests of getting our dev environment set up as quickly as possible, we'll stand up a very basic &quot;Hello World&quot; server.</p>
+<p>Let's put the following into <code>api.go</code>:</p>
+<pre><code>package main
+
+import (
+	&quot;log&quot;
+	&quot;net/http&quot;
+)
+
+func main() {
+	http.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(&quot;ok&quot;))
+	})
+	log.Fatal(http.ListenAndServe(&quot;:3000&quot;, nil))
+}
+</code></pre><p>You can now run this like so:</p>
+<pre><code>$ go run cmd/api.go
+</code></pre><p>Now open up <code>localhost:3000</code> in your browser. Congratulations, a running program! Even if you're not familiar with Go, this code should be relatively self-explanatory. It specifies a function that runs when you access the server at the root path &quot;/&quot;, and it sends the string &quot;ok&quot; in the response. For a better explanation, Go has excellent <a href="https://golang.org/doc/articles/wiki/#tmp_3">documentation</a></p>
+<p>Now that that's done, feel free to take a water break. When you're back, we're going to set up the Kubernetes cluster...</p>
+<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Go ahead and follow the instructions to install it.</p>
+<p>In order to use Tilt, we need to have a Kubernetes cluster running on our local machine. If you're on Mac, the fastest way to get that running is to install <a href="https://docs.docker.com/docker-for-mac/install/">Docker for Mac</a>. Once you've got that installed, Docker has a setting to enable Kubernetes. Enable that setting, and eventually you should see a &quot;Kubernetes is running&quot; message when you click on the Docker icon at the top of the screen.</p>
+<p>&quot;Why are we using Kubernetes for this dead-simple app?&quot; you may ask. The quick answer is that we certainly don't need to, but it's fun! One of the nice things about Go is that you can build binaries that run without any dependencies, so we could just continue to compile and run it in our mac terminal. Given Docker's abysmal performance on mac, that would probably even save us a few gray hairs.</p>
+<p>But that's probably not why you're reading this. The real fun starts when we run this app as a Docker container on a local k8s cluster, leveraging Tilt for live updating and k8s for managing our database(s), thus getting us as close as we can to what will eventually be our production environment.</p>
+<p>Now that we've got Kubernetes running, we need to set up our Tilt dev environment. For our single Go service, that consists of three things:</p>
+<ul>
+<li>Dockerfile for the service</li>
+<li>Kubernetes deployment yaml file</li>
+<li>Tiltfile</li>
+</ul>
+<p>Let's start with the <code>Dockerfile</code>:</p>
+<pre><code>FROM golang:1.14-alpine
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+COPY go.mod .
+# COPY go.sum .
+
+RUN go mod download
+
+COPY . .
+
+RUN go build -o /app/build/api /app/cmd
+
+CMD [&quot;/app/build/api&quot;]
+</code></pre><p>I won't go over the basics of how Docker works, but the gist is that this copies the code over to the image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image semi-frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
+<p>Next up, we want to add a basic deployment file for our k8s cluster. We'll call it <code>deployments/api.yaml</code>:</p>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: dating-app/api
+          command: [&quot;/app/build/api&quot;]
+          ports:
+            - containerPort: 3000
+</code></pre><p>This defines a Kubernetes &quot;Deployment&quot;, the concept of which the <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Kubernetes docs</a> will do a much better job of explaining than I can. In a nutshell, we define a container named <code>api</code> that is built using an image we've defined elsewhere called <code>dating-app/api</code>.</p>
+<p>This image name is defined in our <code>Tiltfile</code>, which is a script that orchestrates our dev environment within Kubernetes. We are going to add the following to our <code>Tiltfile</code> in the root directory of the app:</p>
+<pre><code>load('ext://restart_process', 'docker_build_with_restart')
+
+k8s_yaml('deployments/api.yaml')
+
+docker_build_with_restart('dating-app/api', '.',
+    entrypoint='/app/build/api',
+    ignore=['./Dockerfile', '.git'],
+    live_update=[
+        sync('.', '/app'),
+        run('go build -o /app/build/api /app/cmd'),
+    ]
+)
+
+k8s_resource('api', port_forwards=[3000])
+</code></pre><p>Right now this file does 3 things:</p>
+<ul>
+<li>specifies the locations of the Kubernetes deployment yaml via <code>k8s_yaml()</code></li>
+<li>calls <code>docker_build_with_restart()</code> to specify that we want to build a Docker image called <code>dating-app/api</code> (the name we use in the deployment yaml)</li>
+<li>sets up port-forwarding to make the app accessible via <code>localhost:3000</code></li>
+</ul>
+<p>The <code>load()</code> call at the top enables the <code>docker_build_with_restart()</code> feature, which is an important performance optimization because rebuilding the Docker image on every file change can be extreeeeeeemely slooooooow. Instead, using the <code>live_update</code> argument, we sync file changes with the existing container and rebuild the app within the running container. This makes the development cycle snappy, and in my humble opinion, this should be a default rather than an &quot;extension&quot;, because iterative development in Tilt is pretty slow without it.</p>
+<p>So without further ado, let's go ahead and fire up Tilt. Open a new terminal tab for your project and run:</p>
+<p><code>$ tilt up</code></p>
+<p>In the browser, you should see your api container building properly and, once it finishes, the app should be accessible at <code>localhost:3000</code>.</p>
+<p>Now that we have a working dev environment, we can get started on Part 2 of the tutorial, setting up a rudimentary GraphQL API.</p>]]></content>
+  </entry>
+</feed>

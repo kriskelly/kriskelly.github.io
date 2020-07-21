@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name="hugo-theme" content="Axiom 0.7.0">
+
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/image/brand/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/image/brand/icon-1-1.png">
+  <link rel="canonical" href="https://kriskelly.github.io/go-k8s-part1/">
+<link rel="preload" as="style" href="/bundle.css?v=1595347808" media="all">
+<link rel="stylesheet" href="/bundle.css?v=1595347808" media="all">
+<style>.cdata pre{color:#edf2f7;background-color:#2d3748}.cdata :not(pre)>code{color:#805ad5;background-color:#f7fafc}.chroma .err{color:#fed7d7;background-color:#9b2c2c}.chroma .hl{background-color:#4a5568}.chroma .ln{color:#a0aec0}.chroma .k,.chroma .kc,.chroma .kd,.chroma .kn,.chroma .kp,.chroma .kr{color:#63b3ed}.chroma .kt{color:#b794f4}.chroma .na{color:#f6e05e}.chroma .nb{color:#f6ad55}.chroma .nc{color:#fc8181}.chroma .no{color:#68d391}.chroma .nd{color:#fc8181}.chroma .ne{color:#fc8181}.chroma .nf{color:#f6ad55}.chroma .nt{color:#fc8181}.chroma .l{color:#b794f4}.chroma .dl,.chroma .ld,.chroma .s,.chroma .s2,.chroma .sa,.chroma .sb,.chroma .sc,.chroma .sd{color:#68d391}.chroma .se{color:#a0aec0}.chroma .s1,.chroma .sh,.chroma .si,.chroma .sr,.chroma .ss,.chroma .sx{color:#68d391}.chroma .il,.chroma .m,.chroma .mb,.chroma .mf,.chroma .mh,.chroma .mi,.chroma .mo{color:#b794f4}.chroma .o,.chroma .ow{color:#90cdf4}.chroma .p{color:#cbd5e0}.chroma .c,.chroma .c1,.chroma .ch,.chroma .cm,.chroma .cp,.chroma .cpf,.chroma .cs{color:#a0aec0}.chroma .ge{font-style:italic}.chroma .gs{font-weight:700}</style>
+
+
+
+<title>Part 1: Setting up Golang dev environment with Kubernetes and Tilt : KrisKelly</title>
+
+<meta property="og:title" content="Part 1: Setting up Golang dev environment with Kubernetes and Tilt">
+<meta property="og:site_name" content="KrisKelly">
+<meta property="og:url" content="https://kriskelly.github.io/go-k8s-part1/">
+<link rel="image_src" href="https://kriskelly.github.io/image/page-default.webp">
+<meta property="og:image" content="https://kriskelly.github.io/image/page-default.webp">
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_us">
+<meta property="og:description" content="I&#39;ve never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We&#39;re going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you&#39;ll learn something without nearly as much googling as I had to do.">
+<meta name="description" content="I&#39;ve never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We&#39;re going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you&#39;ll learn something without nearly as much googling as I had to do.">
+<meta property="og:updated_time" content="2020-07-21T00:00:00Z">
+<meta property="fb:app_id" content="">
+<meta name="author" content="Kris Kelly">
+<meta property="article:author" content="https://kriskelly.github.io">
+<meta property="article:published_time" content="2020-07-21T00:00:00Z">
+<meta property="article:modified_time" content="2020-07-21T00:00:00Z">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Part 1: Setting up Golang dev environment with Kubernetes and Tilt",
+  "alternativeHeadline": "In which we set up our dev environment",
+  "url": "https://kriskelly.github.io/go-k8s-part1/",
+  "image": "https://kriskelly.github.io/image/page-default.webp",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://kriskelly.github.io/go-k8s-part1/"
+  },
+  "description": "I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We're going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you'll learn something without nearly as much googling as I had to do.",
+  "author": {
+    "@type": "Person",
+    "name": "Kris Kelly"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "KrisKelly",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://kriskelly.github.io/image/brand/icon-1-1.png"
+    }
+  },
+  "datePublished": "2020-07-21T00:00:00Z",
+  "dateModified": "2020-07-21T00:00:00Z",
+  "articleBody": "\u003cp\u003eI've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We're going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be ok!\u003c/p\u003e\n\u003cp\u003eTodo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we \u0026quot;scratch our own itch\u0026quot;, so I've decided to focus on a topic that is an endless source of \u003cdel\u003efrustration\u003c/del\u003e \u003cdel\u003ejoy\u003c/del\u003e confusion for me: \u003cem\u003edating\u003c/em\u003e. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways! How about instead of a todo app, let's build a dating app! Or at least, let's take a swipe at it \u003cem\u003e(I'm so sorry)\u003c/em\u003e.\u003c/p\u003e\n\u003cp\u003eWhen it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app, but then again, probably not.\u003c/p\u003e\n\u003cp\u003ePart 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a \u0026quot;Hello World\u0026quot; Go microservice. The first step is to use our big brain skills to give it a unique name:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ mkdir dating-app-example\n$ cd dating-app-example\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThe next step is to initialize our Go service. First, let's make sure Go is installed. You can install Go by following instructions \u003ca href=\"https://golang.org/doc/install\"\u003ehere\u003c/a\u003e, or install it via \u003ca href=\"https://brew.sh/\"\u003ehomebrew\u003c/a\u003e. Now let's initialize the project:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ go mod init github.com/[username]/dating-app-example\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eTo structure the project, I took a few cues from \u003ca href=\"https://github.com/golang-standards/project-layout\"\u003egolang-standards/project-layout\u003c/a\u003e, with a very simplified version consisting of the following layout:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ tree\n.\n├── Dockerfile\n├── Tiltfile\n├── cmd\n│   └── api.go\n├── deployments\n│   └── api.yaml\n├── go.mod\n└── internal\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eDon't worry about most of these files yet. In terms of the code we are going to write, the file \u003ccode\u003ecmd/api.go\u003c/code\u003e will be our executable, and all application code will eventually be kept in \u003ccode\u003einternal/\u003c/code\u003e. Many projects use \u003ccode\u003epkg/\u003c/code\u003e for application code, but since we aren't exposing any of this code as an API to be shared with other projects, we can leave it in \u003ccode\u003einternal/\u003c/code\u003e.\u003c/p\u003e\n\u003cp\u003eIn the interests of getting our dev environment set up as quickly as possible, we'll stand up a very basic \u0026quot;Hello World\u0026quot; server.\u003c/p\u003e\n\u003cp\u003eLet's put the following into \u003ccode\u003eapi.go\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003epackage main\n\nimport (\n\t\u0026quot;log\u0026quot;\n\t\u0026quot;net/http\u0026quot;\n)\n\nfunc main() {\n\thttp.HandleFunc(\u0026quot;/\u0026quot;, func(w http.ResponseWriter, r *http.Request) {\n\t\tw.WriteHeader(http.StatusOK)\n\t\tw.Write([]byte(\u0026quot;ok\u0026quot;))\n\t})\n\tlog.Fatal(http.ListenAndServe(\u0026quot;:3000\u0026quot;, nil))\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eYou can now run this like so:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ go run cmd/api.go\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eNow open up \u003ccode\u003elocalhost:3000\u003c/code\u003e in your browser. Congratulations, a running program! Even if you're not familiar with Go, this code should be relatively self-explanatory. It specifies a function that runs when you access the server at the root path \u0026quot;/\u0026quot;, and it sends the string \u0026quot;ok\u0026quot; in the response. For a better explanation, Go has excellent \u003ca href=\"https://golang.org/doc/articles/wiki/#tmp_3\"\u003edocumentation\u003c/a\u003e\u003c/p\u003e\n\u003cp\u003eNow that that's done, feel free to take a water break. When you're back, we're going to set up the Kubernetes cluster...\u003c/p\u003e\n\u003cp\u003eTo set up our Kubernetes cluster development environment, we are going to install a tool called \u003ca href=\"https://docs.tilt.dev/\"\u003eTilt\u003c/a\u003e. Go ahead and follow the instructions to install it.\u003c/p\u003e\n\u003cp\u003eIn order to use Tilt, we need to have a Kubernetes cluster running on our local machine. If you're on Mac, the fastest way to get that running is to install \u003ca href=\"https://docs.docker.com/docker-for-mac/install/\"\u003eDocker for Mac\u003c/a\u003e. Once you've got that installed, Docker has a setting to enable Kubernetes. Enable that setting, and eventually you should see a \u0026quot;Kubernetes is running\u0026quot; message when you click on the Docker icon at the top of the screen.\u003c/p\u003e\n\u003cp\u003e\u0026quot;Why are we using Kubernetes for this dead-simple app?\u0026quot; you may ask. The quick answer is that we certainly don't need to, but it's fun! One of the nice things about Go is that you can build binaries that run without any dependencies, so we could just continue to compile and run it in our mac terminal. Given Docker's abysmal performance on mac, that would probably even save us a few gray hairs.\u003c/p\u003e\n\u003cp\u003eBut that's probably not why you're reading this. The real fun starts when we run this app as a Docker container on a local k8s cluster, leveraging Tilt for live updating and k8s for managing our database(s), thus getting us as close as we can to what will eventually be our production environment.\u003c/p\u003e\n\u003cp\u003eNow that we've got Kubernetes running, we need to set up our Tilt dev environment. For our single Go service, that consists of three things:\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003eDockerfile for the service\u003c/li\u003e\n\u003cli\u003eKubernetes deployment yaml file\u003c/li\u003e\n\u003cli\u003eTiltfile\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003eLet's start with the \u003ccode\u003eDockerfile\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003eFROM golang:1.14-alpine\n\nRUN apk add --no-cache git\n\nWORKDIR /app\n\nCOPY go.mod .\n# COPY go.sum .\n\nRUN go mod download\n\nCOPY . .\n\nRUN go build -o /app/build/api /app/cmd\n\nCMD [\u0026quot;/app/build/api\u0026quot;]\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eI won't go over the basics of how Docker works, but the gist is that this copies the code over to the image, downloads any dependencies listed in \u003ccode\u003ego.mod\u003c/code\u003e, builds the executable, and runs it. Since we'll be building this Docker image semi-frequently during development, there's a \u0026quot;trick\u0026quot; for improving the build performance via the \u003ccode\u003eCOPY go.mod .\u003c/code\u003e command that runs before the main \u003ccode\u003eCOPY . .\u003c/code\u003e command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. The \u003ccode\u003ego.sum\u003c/code\u003e file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.\u003c/p\u003e\n\u003cp\u003eNext up, we want to add a basic deployment file for our k8s cluster. We'll call it \u003ccode\u003edeployments/api.yaml\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003eapiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: api\n  labels:\n    app: api\nspec:\n  selector:\n    matchLabels:\n      app: api\n  template:\n    metadata:\n      labels:\n        app: api\n    spec:\n      containers:\n        - name: api\n          image: dating-app/api\n          command: [\u0026quot;/app/build/api\u0026quot;]\n          ports:\n            - containerPort: 3000\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThis defines a Kubernetes \u0026quot;Deployment\u0026quot;, the concept of which the \u003ca href=\"https://kubernetes.io/docs/concepts/workloads/controllers/deployment/\"\u003eKubernetes docs\u003c/a\u003e will do a much better job of explaining than I can. In a nutshell, we define a container named \u003ccode\u003eapi\u003c/code\u003e that is built using an image we've defined elsewhere called \u003ccode\u003edating-app/api\u003c/code\u003e.\u003c/p\u003e\n\u003cp\u003eThis image name is defined in our \u003ccode\u003eTiltfile\u003c/code\u003e, which is a script that orchestrates our dev environment within Kubernetes. We are going to add the following to our \u003ccode\u003eTiltfile\u003c/code\u003e in the root directory of the app:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003eload('ext://restart_process', 'docker_build_with_restart')\n\nk8s_yaml('deployments/api.yaml')\n\ndocker_build_with_restart('dating-app/api', '.',\n    entrypoint='/app/build/api',\n    ignore=['./Dockerfile', '.git'],\n    live_update=[\n        sync('.', '/app'),\n        run('go build -o /app/build/api /app/cmd'),\n    ]\n)\n\nk8s_resource('api', port_forwards=[3000])\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eRight now this file does 3 things:\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003especifies the locations of the Kubernetes deployment yaml via \u003ccode\u003ek8s_yaml()\u003c/code\u003e\u003c/li\u003e\n\u003cli\u003ecalls \u003ccode\u003edocker_build_with_restart()\u003c/code\u003e to specify that we want to build a Docker image called \u003ccode\u003edating-app/api\u003c/code\u003e (the name we use in the deployment yaml)\u003c/li\u003e\n\u003cli\u003esets up port-forwarding to make the app accessible via \u003ccode\u003elocalhost:3000\u003c/code\u003e\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003eThe \u003ccode\u003eload()\u003c/code\u003e call at the top enables the \u003ccode\u003edocker_build_with_restart()\u003c/code\u003e feature, which is an important performance optimization because rebuilding the Docker image on every file change can be extreeeeeeemely slooooooow. Instead, using the \u003ccode\u003elive_update\u003c/code\u003e argument, we sync file changes with the existing container and rebuild the app within the running container. This makes the development cycle snappy, and in my humble opinion, this should be a default rather than an \u0026quot;extension\u0026quot;, because iterative development in Tilt is pretty slow without it.\u003c/p\u003e\n\u003cp\u003eSo without further ado, let's go ahead and fire up Tilt. Open a new terminal tab for your project and run:\u003c/p\u003e\n\u003cp\u003e\u003ccode\u003e$ tilt up\u003c/code\u003e\u003c/p\u003e\n\u003cp\u003eIn the browser, you should see your api container building properly and, once it finishes, the app should be accessible at \u003ccode\u003elocalhost:3000\u003c/code\u003e.\u003c/p\u003e\n\u003cp\u003eNow that we have a working dev environment, we can get started on Part 2 of the tutorial, setting up a rudimentary GraphQL API.\u003c/p\u003e"
+}
+</script>
+
+<link rel="preload" as="script" href="/bundle.js?v=1595347808">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://stats.g.doubleclick.net">
+<link rel="preconnect" href="https://www.googleadservices.com">
+<link rel="preload" as="script" href="https://www.googletagmanager.com/gtag/js?id=UA-160259978-2">
+<script src="https://www.googletagmanager.com/gtag/js?id=UA-160259978-2"></script>
+<script>
+  window.dataLayer=window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js',new Date());
+  gtag('config','UA-160259978-2');
+</script>
+
+</head>
+<body>
+
+  <header id="nav" class="header">
+  <div class="ax-l-i max-w-6xl">
+    <div class="ax-logo">
+      <a class="block" href="/" title="KrisKelly"><span class="font-semibold text-raven-900">KrisKelly</span></a>
+    </div>
+    <div class="ax-user">
+      <a class="p-2 w-8 h-8 block text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" target="_blank" rel="noopener nofollow" href="https://www.google.com/search?q=site:example.com" title="Search">
+        <svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M2.67 12.804c0-5.6 4.544-10.134 10.133-10.134s10.134 4.544 10.134 10.134-4.544 10.133-10.134 10.133S2.67 18.393 2.67 12.804zm28.943 16.923l-8.868-8.868c4.287-5.3 3.68-13.012-1.378-17.57S8.564-1.066 3.75 3.75s-5.017 12.558-.46 17.618 12.28 5.665 17.57 1.378l8.868 8.868a1.33 1.33 0 0 0 2.231-.597c.123-.46-.008-.952-.345-1.29h0z"/></svg>
+
+      </a>
+      <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/posts/">
+        Posts
+      </a>
+    </div>
+  </div>
+
+  
+</header>
+
+  <main>
+<div class="default-single">
+  <div class="ax-title ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <h1 class="post-title font-content-title font-normal leading-tight tracking-default text-40">Part 1: Setting up Golang dev environment with Kubernetes and Tilt</h1>
+      <p class="post-subtitle font-content-sans font-light text-xl text-raven-500 mt-3">In which we set up our dev environment</p>
+
+      <div class="ax-meta flex items-center mt-5">
+        <div class="flex-grow min-w-0">
+          <div class="flex items-center">
+  <div class="flex-shrink-0">
+    <img
+    class="w-12 h-12 sm:w-14 sm:h-14 object-cover p-3px rounded-full border border-blue-300"
+    src="/images/kris.jpg"
+    alt="Kris Kelly">
+  </div>
+  <div class="flex-shrink-0 ml-2 leading-tight font-content-sans">
+    <a class="block text-sm text-raven-800 hover:text-raven-900 hover:underline focus:underline" target="_blank" rel="noopener nofollow" title="Kris Kelly" href="https://kriskelly.github.io">Kris Kelly</a>
+    <time class="text-sm text-raven-500" datetime="2020-07-21T00:00:00Z">Jul 20, 2020 5:00PM</time>
+  </div>
+</div>
+
+        </div>
+        <div>
+          <div class="flex items-center">
+  <a class="flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Twitter" href="https://twitter.com/intent/tweet?text=Part%201%3a%20Setting%20up%20Golang%20dev%20environment%20with%20Kubernetes%20and%20Tilt%20by%20%40%25%21s%28%3cnil%3e%29%20https%3a%2f%2fkriskelly.github.io%2fgo-k8s-part1%2f"><svg class="w-6 h-6 fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg>
+</a>
+  <a class="ml-3 flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Facebook" href="https://www.facebook.com/dialog/share?app_id=&display=page&href=https%3a%2f%2fkriskelly.github.io%2fgo-k8s-part1%2f"><svg class="w-6 h-6 fill-current" viewBox="-7 -3.5 39 39" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M30.234 0H1.765C.8.001 0 .79 0 1.766v28.47C.001 31.2.79 32 1.766 32h15.328V19.625h-4.156V14.78h4.156v-3.564c0-4.134 2.523-6.384 6.21-6.384 1.766 0 3.284.13 3.726.2v4.32h-2.543c-2.006 0-2.394.953-2.394 2.352v3.085h4.797l-.625 4.844h-4.172V32h8.14C31.21 32 32 31.2 32 30.234V1.765C32 .8 31.21 0 30.234 0z"/></svg>
+</a>
+</div>
+
+        </div>
+      </div>
+    </div>
+  </div><div class="ax-content ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <article class="cdata">
+<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! We're going to cram in as many buzzword-friendly technologies as possible. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be ok!</p>
+<p>Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> <del>joy</del> confusion for me: <em>dating</em>. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways! How about instead of a todo app, let's build a dating app! Or at least, let's take a swipe at it <em>(I'm so sorry)</em>.</p>
+<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app, but then again, probably not.</p>
+<p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique name:</p>
+<pre><code>$ mkdir dating-app-example
+$ cd dating-app-example
+</code></pre><p>The next step is to initialize our Go service. First, let's make sure Go is installed. You can install Go by following instructions <a href="https://golang.org/doc/install">here</a>, or install it via <a href="https://brew.sh/">homebrew</a>. Now let's initialize the project:</p>
+<pre><code>$ go mod init github.com/[username]/dating-app-example
+</code></pre><p>To structure the project, I took a few cues from <a href="https://github.com/golang-standards/project-layout">golang-standards/project-layout</a>, with a very simplified version consisting of the following layout:</p>
+<pre><code>$ tree
+.
+├── Dockerfile
+├── Tiltfile
+├── cmd
+│   └── api.go
+├── deployments
+│   └── api.yaml
+├── go.mod
+└── internal
+</code></pre><p>Don't worry about most of these files yet. In terms of the code we are going to write, the file <code>cmd/api.go</code> will be our executable, and all application code will eventually be kept in <code>internal/</code>. Many projects use <code>pkg/</code> for application code, but since we aren't exposing any of this code as an API to be shared with other projects, we can leave it in <code>internal/</code>.</p>
+<p>In the interests of getting our dev environment set up as quickly as possible, we'll stand up a very basic &quot;Hello World&quot; server.</p>
+<p>Let's put the following into <code>api.go</code>:</p>
+<pre><code>package main
+
+import (
+	&quot;log&quot;
+	&quot;net/http&quot;
+)
+
+func main() {
+	http.HandleFunc(&quot;/&quot;, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(&quot;ok&quot;))
+	})
+	log.Fatal(http.ListenAndServe(&quot;:3000&quot;, nil))
+}
+</code></pre><p>You can now run this like so:</p>
+<pre><code>$ go run cmd/api.go
+</code></pre><p>Now open up <code>localhost:3000</code> in your browser. Congratulations, a running program! Even if you're not familiar with Go, this code should be relatively self-explanatory. It specifies a function that runs when you access the server at the root path &quot;/&quot;, and it sends the string &quot;ok&quot; in the response. For a better explanation, Go has excellent <a href="https://golang.org/doc/articles/wiki/#tmp_3">documentation</a></p>
+<p>Now that that's done, feel free to take a water break. When you're back, we're going to set up the Kubernetes cluster...</p>
+<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Go ahead and follow the instructions to install it.</p>
+<p>In order to use Tilt, we need to have a Kubernetes cluster running on our local machine. If you're on Mac, the fastest way to get that running is to install <a href="https://docs.docker.com/docker-for-mac/install/">Docker for Mac</a>. Once you've got that installed, Docker has a setting to enable Kubernetes. Enable that setting, and eventually you should see a &quot;Kubernetes is running&quot; message when you click on the Docker icon at the top of the screen.</p>
+<p>&quot;Why are we using Kubernetes for this dead-simple app?&quot; you may ask. The quick answer is that we certainly don't need to, but it's fun! One of the nice things about Go is that you can build binaries that run without any dependencies, so we could just continue to compile and run it in our mac terminal. Given Docker's abysmal performance on mac, that would probably even save us a few gray hairs.</p>
+<p>But that's probably not why you're reading this. The real fun starts when we run this app as a Docker container on a local k8s cluster, leveraging Tilt for live updating and k8s for managing our database(s), thus getting us as close as we can to what will eventually be our production environment.</p>
+<p>Now that we've got Kubernetes running, we need to set up our Tilt dev environment. For our single Go service, that consists of three things:</p>
+<ul>
+<li>Dockerfile for the service</li>
+<li>Kubernetes deployment yaml file</li>
+<li>Tiltfile</li>
+</ul>
+<p>Let's start with the <code>Dockerfile</code>:</p>
+<pre><code>FROM golang:1.14-alpine
+
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+COPY go.mod .
+# COPY go.sum .
+
+RUN go mod download
+
+COPY . .
+
+RUN go build -o /app/build/api /app/cmd
+
+CMD [&quot;/app/build/api&quot;]
+</code></pre><p>I won't go over the basics of how Docker works, but the gist is that this copies the code over to the image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image semi-frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
+<p>Next up, we want to add a basic deployment file for our k8s cluster. We'll call it <code>deployments/api.yaml</code>:</p>
+<pre><code>apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  labels:
+    app: api
+spec:
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          image: dating-app/api
+          command: [&quot;/app/build/api&quot;]
+          ports:
+            - containerPort: 3000
+</code></pre><p>This defines a Kubernetes &quot;Deployment&quot;, the concept of which the <a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/">Kubernetes docs</a> will do a much better job of explaining than I can. In a nutshell, we define a container named <code>api</code> that is built using an image we've defined elsewhere called <code>dating-app/api</code>.</p>
+<p>This image name is defined in our <code>Tiltfile</code>, which is a script that orchestrates our dev environment within Kubernetes. We are going to add the following to our <code>Tiltfile</code> in the root directory of the app:</p>
+<pre><code>load('ext://restart_process', 'docker_build_with_restart')
+
+k8s_yaml('deployments/api.yaml')
+
+docker_build_with_restart('dating-app/api', '.',
+    entrypoint='/app/build/api',
+    ignore=['./Dockerfile', '.git'],
+    live_update=[
+        sync('.', '/app'),
+        run('go build -o /app/build/api /app/cmd'),
+    ]
+)
+
+k8s_resource('api', port_forwards=[3000])
+</code></pre><p>Right now this file does 3 things:</p>
+<ul>
+<li>specifies the locations of the Kubernetes deployment yaml via <code>k8s_yaml()</code></li>
+<li>calls <code>docker_build_with_restart()</code> to specify that we want to build a Docker image called <code>dating-app/api</code> (the name we use in the deployment yaml)</li>
+<li>sets up port-forwarding to make the app accessible via <code>localhost:3000</code></li>
+</ul>
+<p>The <code>load()</code> call at the top enables the <code>docker_build_with_restart()</code> feature, which is an important performance optimization because rebuilding the Docker image on every file change can be extreeeeeeemely slooooooow. Instead, using the <code>live_update</code> argument, we sync file changes with the existing container and rebuild the app within the running container. This makes the development cycle snappy, and in my humble opinion, this should be a default rather than an &quot;extension&quot;, because iterative development in Tilt is pretty slow without it.</p>
+<p>So without further ado, let's go ahead and fire up Tilt. Open a new terminal tab for your project and run:</p>
+<p><code>$ tilt up</code></p>
+<p>In the browser, you should see your api container building properly and, once it finishes, the app should be accessible at <code>localhost:3000</code>.</p>
+<p>Now that we have a working dev environment, we can get started on Part 2 of the tutorial, setting up a rudimentary GraphQL API.</p>
+
+      </article>
+      
+
+      
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <footer class="footer">
+  <div class="ax-l-i max-w-6xl">
+    <nav class="flex items-center justify-center">
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/posts/">Posts</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/about/">About</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/contact/">Contact</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/privacy/">Privacy</a>
+    </nav>
+    <div class="footer-social flex items-center justify-center mt-4">
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Twitter" href="https://twitter.com/axiomtheme"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Github" href="https://github.com/user"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M15.998 0C7.164 0 0 7.35 0 16.417 0 23.67 4.584 29.82 10.944 31.994c.8.15 1.092-.356 1.092-.79l-.022-2.792c-4.45.99-5.4-2.202-5.4-2.202-.726-1.896-1.776-2.4-1.776-2.4-1.454-1.018.108-.998.108-.998 1.606.117 2.45 1.693 2.45 1.693 1.428 2.507 3.746 1.784 4.658 1.363.144-1.06.558-1.784 1.016-2.195-3.552-.415-7.288-1.823-7.288-8.113 0-1.792.624-3.258 1.648-4.406-.166-.415-.714-2.085.156-4.344 0 0 1.344-.44 4.4 1.683 1.276-.364 2.644-.546 4.006-.552a14.98 14.98 0 0 1 4.006.554C23.062 6.37 24.404 6.8 24.404 6.8c.872 2.26.324 3.93.16 4.344 1.026 1.148 1.644 2.614 1.644 4.406 0 6.306-3.74 7.694-7.304 8.1.574.507 1.086 1.51 1.086 3.04l-.02 4.503c0 .44.288.95 1.1.788C27.42 29.817 32 23.667 32 16.417 32 7.35 24.836 0 15.998 0z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Instagram" href="https://instagram.com/user"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M4 32h24c2.258 0 4-1.742 4-4V4c0-2.26-1.742-4-4-4H4C1.74 0 0 1.74 0 4v24c0 2.258 1.74 4 4 4zM22 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zm-5.977 4.714c3.55 0 6.425 2.787 6.425 6.226s-2.876 6.226-6.425 6.226S9.6 19.377 9.6 15.94s2.878-6.226 6.423-6.226zM4 13l2.493.542c-.274.89-.413 1.815-.413 2.745 0 5.318 4.454 9.634 9.943 9.634s9.944-4.315 9.944-9.634c0-.955-.145-1.875-.412-2.745L28 13v14c0 .7-.3 1-1 1H5c-.7 0-1-.3-1-1V13z"/></svg></a>
+    </div>
+
+    <div class="footer-copyright text-sm text-center text-gray-500 mt-4">
+      &#169; 2019-2020 KrisKelly
+    </div>
+    <div class="text-sm sm:text-xs text-center text-gray-500 mt-2">
+      Powered by <a href="https://www.axiomtheme.com/?utm_source=theme-footer&utm_medium=website&utm_campaign=referral">Axiom</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/bundle.js?v=1595347808"></script>
+
+
+</body>
+</html>

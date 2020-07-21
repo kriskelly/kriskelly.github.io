@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name="hugo-theme" content="Axiom 0.7.0">
+
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/image/brand/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/image/brand/icon-1-1.png">
+  <link rel="canonical" href="https://kriskelly.github.io/part2-go-graphql/">
+<link rel="preload" as="style" href="/bundle.css?v=1595347808" media="all">
+<link rel="stylesheet" href="/bundle.css?v=1595347808" media="all">
+<style>.cdata pre{color:#edf2f7;background-color:#2d3748}.cdata :not(pre)>code{color:#805ad5;background-color:#f7fafc}.chroma .err{color:#fed7d7;background-color:#9b2c2c}.chroma .hl{background-color:#4a5568}.chroma .ln{color:#a0aec0}.chroma .k,.chroma .kc,.chroma .kd,.chroma .kn,.chroma .kp,.chroma .kr{color:#63b3ed}.chroma .kt{color:#b794f4}.chroma .na{color:#f6e05e}.chroma .nb{color:#f6ad55}.chroma .nc{color:#fc8181}.chroma .no{color:#68d391}.chroma .nd{color:#fc8181}.chroma .ne{color:#fc8181}.chroma .nf{color:#f6ad55}.chroma .nt{color:#fc8181}.chroma .l{color:#b794f4}.chroma .dl,.chroma .ld,.chroma .s,.chroma .s2,.chroma .sa,.chroma .sb,.chroma .sc,.chroma .sd{color:#68d391}.chroma .se{color:#a0aec0}.chroma .s1,.chroma .sh,.chroma .si,.chroma .sr,.chroma .ss,.chroma .sx{color:#68d391}.chroma .il,.chroma .m,.chroma .mb,.chroma .mf,.chroma .mh,.chroma .mi,.chroma .mo{color:#b794f4}.chroma .o,.chroma .ow{color:#90cdf4}.chroma .p{color:#cbd5e0}.chroma .c,.chroma .c1,.chroma .ch,.chroma .cm,.chroma .cp,.chroma .cpf,.chroma .cs{color:#a0aec0}.chroma .ge{font-style:italic}.chroma .gs{font-weight:700}</style>
+
+
+
+<title>Part 2: Implementing a GraphQL server : KrisKelly</title>
+
+<meta property="og:title" content="Part 2: Implementing a GraphQL server">
+<meta property="og:site_name" content="KrisKelly">
+<meta property="og:url" content="https://kriskelly.github.io/part2-go-graphql/">
+<link rel="image_src" href="https://kriskelly.github.io/image/page-default.webp">
+<meta property="og:image" content="https://kriskelly.github.io/image/page-default.webp">
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_us">
+<meta property="og:description" content="Welcome to Part 2 of this tutorial series. In the last section, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we&#39;ll set up a GraphQL server with a couple of example queries and mutations.">
+<meta name="description" content="Welcome to Part 2 of this tutorial series. In the last section, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we&#39;ll set up a GraphQL server with a couple of example queries and mutations.">
+<meta property="og:updated_time" content="2020-07-21T01:00:00Z">
+<meta property="fb:app_id" content="">
+<meta name="author" content="Kris Kelly">
+<meta property="article:author" content="https://kriskelly.github.io">
+<meta property="article:published_time" content="2020-07-21T01:00:00Z">
+<meta property="article:modified_time" content="2020-07-21T01:00:00Z">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Part 2: Implementing a GraphQL server",
+  "alternativeHeadline": "In which we set up GraphQL in go using gqlgen",
+  "url": "https://kriskelly.github.io/part2-go-graphql/",
+  "image": "https://kriskelly.github.io/image/page-default.webp",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://kriskelly.github.io/part2-go-graphql/"
+  },
+  "description": "Welcome to Part 2 of this tutorial series. In the last section, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we'll set up a GraphQL server with a couple of example queries and mutations.",
+  "author": {
+    "@type": "Person",
+    "name": "Kris Kelly"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "KrisKelly",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://kriskelly.github.io/image/brand/icon-1-1.png"
+    }
+  },
+  "datePublished": "2020-07-21T01:00:00Z",
+  "dateModified": "2020-07-21T01:00:00Z",
+  "articleBody": "\u003cp\u003eWelcome to Part 2 of this tutorial series. In the \u003ca href=\"/go-k8s-part1/\"\u003elast section\u003c/a\u003e, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we'll set up a GraphQL server with a couple of example queries and mutations.\u003c/p\u003e\n\u003cp\u003eFirst we are going to add the \u003ca href=\"https://gqlgen.com/\"\u003egqlgen\u003c/a\u003e library to our project. They've got a good \u0026quot;Getting Started\u0026quot; tutorial which we will basically be following for the first part of this.\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ cd dating-app-example\n$ go get github.com/99designs/gqlgen\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eAt this point we could continue following the gqlgen tutorial and run \u003ccode\u003ego run github.com/99designs/gqlgen init\u003c/code\u003e to initialize the project structure, but since we have our own opinions about how the project should be structured, let's start with a custom config file and use that to generate the code we need.\u003c/p\u003e\n\u003cp\u003eCopy the following config into a \u003ccode\u003egqlgen.yml\u003c/code\u003e file in the root of the project:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e# Where are all the schema files located? globs are supported eg  src/**/*.graphqls\nschema:\n  - internal/graph/*.graphqls\n\n# Where should the generated server code go?\nexec:\n  filename: internal/graph/generated/generated.go\n  package: generated\n\n# Where should any generated models go?\nmodel:\n  filename: internal/model/models_gen.go\n  package: model\n\n# Where should the resolver implementations go?\nresolver:\n  layout: follow-schema\n  dir: internal/graph\n  package: graph\n\n# gqlgen will search for any type names in the schema in these go packages\n# if they match it will use them, otherwise it will generate them.\nautobind:\n  - \u0026quot;github.com/kriskelly/dating-app-example/internal/model\u0026quot;\n\n# This section declares type mapping between the GraphQL and go type systems\n#\n# The first line in each type will be used as defaults for resolver arguments and\n# modelgen, the others will be allowed when binding to fields. Configure them to\n# your liking\nmodels:\n  ID:\n    model:\n      - github.com/99designs/gqlgen/graphql.ID\n      - github.com/99designs/gqlgen/graphql.Int\n      - github.com/99designs/gqlgen/graphql.Int64\n      - github.com/99designs/gqlgen/graphql.Int32\n  Int:\n    model:\n      - github.com/99designs/gqlgen/graphql.Int\n      - github.com/99designs/gqlgen/graphql.Int64\n      - github.com/99designs/gqlgen/graphql.Int32\n\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThe auto-generated comments in this file do a good job of explaining each setting, but the gist is that we are just modifying the paths to point to \u003ccode\u003einternal/graph\u003c/code\u003e and \u003ccode\u003einternal/model\u003c/code\u003e as the locations for our GraphQL resolvers and models, respectively.\u003c/p\u003e\n\u003cp\u003eBefore we generate any code, let's also specify the GraphQL schema that we want to build by putting the following in \u003ccode\u003einternal/graph/schema.graphqls\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003etype User {\n  id: ID!\n  name: String!\n  email: String!\n  password: String!\n}\n\ntype Query {\n  me: User!\n}\n\ninput NewUser {\n  name: String!\n  email: String!\n  password: String!\n}\n\ntype Mutation {\n  login(email: String!, password: String!): User!\n  signup(input: NewUser!): User!\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThis defines enough types, mutations, and queries to get us through a basic signup/login flow for a user.\u003c/p\u003e\n\u003cp\u003eOne last thing to do before we generate any code is to define our User model. Because we specified the \u003ccode\u003eautobind\u003c/code\u003e setting in our config file, \u003ccode\u003egqlgen\u003c/code\u003e will look for models that we have defined ourselves and use those instead of auto-generating that code. So let's define our own User model first in \u003ccode\u003einternal/model/user.go\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003epackage model\n\n// User model\ntype User struct {\n\tID       string `json:\u0026quot;id\u0026quot;`\n\tName     string `json:\u0026quot;name\u0026quot;`\n\tEmail    string `json:\u0026quot;email\u0026quot;`\n\tPassword string `json:\u0026quot;password\u0026quot;`\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThe list of fields here matches what we declared in our GraphQL schema. The JSON annotation names should also match the names of fields in the schema. Now let's generate the code for the resolvers:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ go run github.com/99designs/gqlgen\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThis will generate some files in \u003ccode\u003einternal/graph\u003c/code\u003e, one of which is \u003ccode\u003eschema.resolvers.go\u003c/code\u003e. Let's talk a look at this file first. There you'll see some stubs for resolvers, for example:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003efunc (r *mutationResolver) Login(ctx context.Context, email string, password string) (*model.User, error) {\n\tpanic(fmt.Errorf(\u0026quot;not implemented\u0026quot;))\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThis is where the bulk of our resolver logic will go. But let's not worry about that just yet. We've got one more step before we get a live GraphQL server up and running. Let's modify our original \u003ccode\u003eapi.go\u003c/code\u003e file to serve the GraphQL API. Note that this is the same code that gets generated if you had initialized the project using \u003ccode\u003ego run github.com/99designs/gqlgen init\u003c/code\u003e:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"kn\"\u003epackage\u003c/span\u003e \u003cspan class=\"nx\"\u003emain\u003c/span\u003e\n\n\u003cspan class=\"kn\"\u003eimport\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;log\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;net/http\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;os\u0026#34;\u003c/span\u003e\n\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/99designs/gqlgen/graphql/handler\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/99designs/gqlgen/graphql/playground\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/kriskelly/dating-app-example/internal/graph\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/kriskelly/dating-app-example/internal/graph/generated\u0026#34;\u003c/span\u003e\n\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003econst\u003c/span\u003e \u003cspan class=\"nx\"\u003edefaultPort\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;3000\u0026#34;\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"nf\"\u003emain\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eport\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003eos\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eGetenv\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;PORT\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eport\u003c/span\u003e \u003cspan class=\"o\"\u003e==\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;\u0026#34;\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003eport\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003edefaultPort\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\t\u003cspan class=\"nx\"\u003esrv\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003ehandler\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewDefaultServer\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003egenerated\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewExecutableSchema\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003egenerated\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eConfig\u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"nx\"\u003eResolvers\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003egraph\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e{}}))\u003c/span\u003e\n\n\t\u003cspan class=\"nx\"\u003ehttp\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eHandle\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;/\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eplayground\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eHandler\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;GraphQL playground\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;/query\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e))\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003ehttp\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eHandle\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;/query\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003esrv\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003ePrintf\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;connect to http://localhost:%s/ for GraphQL playground\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eport\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatal\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ehttp\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eListenAndServe\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;:\u0026#34;\u003c/span\u003e\u003cspan class=\"o\"\u003e+\u003c/span\u003e\u003cspan class=\"nx\"\u003eport\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\u003cspan class=\"p\"\u003e))\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eWe can see from this code that the GraphQL API is served at \u003ccode\u003elocalhost:3000/query\u003c/code\u003e, and we've also now got a GraphQL playground accessible at \u003ccode\u003elocalhost:3000\u003c/code\u003e. Go ahead and open the playground in your browser. Now you should be able to run a query like:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-graphql\" data-lang=\"graphql\"\u003e\u003cspan class=\"kd\"\u003equery\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"nc\"\u003eme\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e    \u003c/span\u003e\u003cspan class=\"py\"\u003eid\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eYou should see an \u0026quot;internal system error\u0026quot; message in the response. If you go back to the Tilt console, you can see the \u003ccode\u003epanic()\u003c/code\u003e error message printed as a long, scary stack trace starting something like this:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003enot implemented\n\ngoroutine 5 [running]:\nruntime/debug.Stack(0x1, 0x0, 0x0)\n\t/usr/local/go/src/runtime/debug/stack.go:24 +0x9d\nruntime/debug.PrintStack()\n\t/usr/local/go/src/runtime/debug/stack.go:16 +0x22\ngithub.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x8181c0, 0xc0003549d0, 0xc000022a80, 0x7fcfbf2077d0)\n...\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThat's because all the resolver calls currently panic. This is good though, because now we have feedback that the system is working end-to-end. Now we can start implementing our resolvers!\u003c/p\u003e\n\u003cp\u003eSince we aren't using a real database in our initial implementation, we can use the \u003ccode\u003eResolver\u003c/code\u003e struct to maintain state and imitate a user authentication system. Let's start by replacing the contents of our \u003ccode\u003eresolver.go\u003c/code\u003e file with the following:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"kn\"\u003epackage\u003c/span\u003e \u003cspan class=\"nx\"\u003egraph\u003c/span\u003e\n\n\u003cspan class=\"kn\"\u003eimport\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;github.com/kriskelly/dating-app-example/internal/model\u0026#34;\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003etype\u003c/span\u003e \u003cspan class=\"nx\"\u003eResolver\u003c/span\u003e \u003cspan class=\"kd\"\u003estruct\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eusers\u003c/span\u003e       \u003cspan class=\"kd\"\u003emap\u003c/span\u003e\u003cspan class=\"p\"\u003e[\u003c/span\u003e\u003cspan class=\"kt\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e]\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003ecurrentUser\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"nf\"\u003eNewResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003eResolver\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003eResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003eusers\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"nb\"\u003emake\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"kd\"\u003emap\u003c/span\u003e\u003cspan class=\"p\"\u003e[\u003c/span\u003e\u003cspan class=\"kt\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e]\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\u003cspan class=\"p\"\u003e),\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eThis does a couple of things: it adds some attributes to the struct for maintaining state, and it adds an initializer called \u003ccode\u003eNewResolver()\u003c/code\u003e to ensure that those attributes are initialized correctly. For the map of users, we need to initialize a new empty map using \u003ccode\u003emake()\u003c/code\u003e.\u003c/p\u003e\n\u003cp\u003eSince we need to use the new initializer, go back to \u003ccode\u003eapi.go\u003c/code\u003e and modify the line that generates the GraphQL server so that it looks like the following:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\t\u003cspan class=\"nx\"\u003eresolver\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003egraph\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003esrv\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003ehandler\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewDefaultServer\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003egenerated\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewExecutableSchema\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003egenerated\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eConfig\u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"nx\"\u003eResolvers\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"nx\"\u003eresolver\u003c/span\u003e\u003cspan class=\"p\"\u003e}))\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eNow let's pop over to where we implement our queries and mutations. Replace the relevant functions with the following code:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003er\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emutationResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"nf\"\u003eLogin\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ectx\u003c/span\u003e \u003cspan class=\"nx\"\u003econtext\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eContext\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eemail\u003c/span\u003e \u003cspan class=\"kt\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003epassword\u003c/span\u003e \u003cspan class=\"kt\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kt\"\u003eerror\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003euser\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003er\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eusers\u003c/span\u003e\u003cspan class=\"p\"\u003e[\u003c/span\u003e\u003cspan class=\"nx\"\u003eemail\u003c/span\u003e\u003cspan class=\"p\"\u003e]\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e \u003cspan class=\"o\"\u003e==\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerrors\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNew\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;Invalid email\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003ePassword\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"nx\"\u003epassword\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerrors\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNew\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;Invalid password\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003er\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003ecurrentUser\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003er\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emutationResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"nf\"\u003eSignup\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ectx\u003c/span\u003e \u003cspan class=\"nx\"\u003econtext\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eContext\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003einput\u003c/span\u003e \u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eNewUser\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kt\"\u003eerror\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003enewUser\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003eName\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e     \u003cspan class=\"nx\"\u003einput\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eName\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003eEmail\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e    \u003cspan class=\"nx\"\u003einput\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eEmail\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003ePassword\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"nx\"\u003einput\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003ePassword\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eid\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003euuid\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNew\u003c/span\u003e\u003cspan class=\"p\"\u003e().\u003c/span\u003e\u003cspan class=\"nf\"\u003eString\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003enewUser\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eID\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003eid\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003er\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eusers\u003c/span\u003e\u003cspan class=\"p\"\u003e[\u003c/span\u003e\u003cspan class=\"nx\"\u003enewUser\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eEmail\u003c/span\u003e\u003cspan class=\"p\"\u003e]\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003enewUser\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"nx\"\u003enewUser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003er\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003equeryResolver\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"nf\"\u003eMe\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ectx\u003c/span\u003e \u003cspan class=\"nx\"\u003econtext\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eContext\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003emodel\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eUser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kt\"\u003eerror\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003euser\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003er\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003ecurrentUser\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e \u003cspan class=\"o\"\u003e==\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerrors\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNew\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;No current user\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"nx\"\u003euser\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eYou'll see that the \u003ccode\u003eSignup()\u003c/code\u003e mutation creates a new \u003ccode\u003eUser\u003c/code\u003e instance and caches it in the resolver. \u003ccode\u003eLogin()\u003c/code\u003e does a lookup based on the email address and sets the \u003ccode\u003ecurrentUser\u003c/code\u003e, and \u003ccode\u003eMe()\u003c/code\u003e looks for the current user. All of this is simplified to work without a database or session management, so it goes without saying that you wouldn't do this in a real app. But for demonstration purposes, you get the gist.\u003c/p\u003e\n\u003cp\u003eI wanted unique IDs for the users, so I added the \u003ca href=\"https://github.com/google/uuid\"\u003egithub.com/google/uuid\u003c/a\u003e and generated the ID like so:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"nx\"\u003eid\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003euuid\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNew\u003c/span\u003e\u003cspan class=\"p\"\u003e().\u003c/span\u003e\u003cspan class=\"nf\"\u003eString\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eThis isn't important for this test implementation, so feel free to leave that out.\u003c/p\u003e\n\u003cp\u003eAnyway, now you should be able to fire up the GraphQL playground and make some moves. Try a \u003ccode\u003esignup()\u003c/code\u003e mutation, followed by \u003ccode\u003elogin()\u003c/code\u003e and \u003ccode\u003eme()\u003c/code\u003e. For example:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-graphql\" data-lang=\"graphql\"\u003e\u003cspan class=\"kd\"\u003emutation\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"nc\"\u003esignup\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"kd\"\u003einput\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"nc\"\u003ename\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;Foobar\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"nc\"\u003eemail\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;foo@bar.com\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"nc\"\u003epassword\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;foo\u0026#34;\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e})\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e    \u003c/span\u003e\u003cspan class=\"nc\"\u003ename\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"c\"\u003e# Then in a separate call:\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"nc\"\u003emutation\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"py\"\u003elogin\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"py\"\u003eemail\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;foo@bar.com\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"nc\"\u003epassword\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;foo\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e    \u003c/span\u003e\u003cspan class=\"nc\"\u003ename\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"c\"\u003e# Then:\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"kd\"\u003equery\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"nc\"\u003eme\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e{\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e    \u003c/span\u003e\u003cspan class=\"py\"\u003ename\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e\u003c/span\u003e\u003cspan class=\"p\"\u003e}\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eIf all's well, then you've got a functioning GraphQL server!\u003c/p\u003e\n\u003cp\u003eBe sure to tune in for Part 3, where-in we will integrate Dgraph, a shiny new NoSQL graph database, to store user data and relationships.\u003c/p\u003e"
+}
+</script>
+
+<link rel="preload" as="script" href="/bundle.js?v=1595347808">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://stats.g.doubleclick.net">
+<link rel="preconnect" href="https://www.googleadservices.com">
+<link rel="preload" as="script" href="https://www.googletagmanager.com/gtag/js?id=UA-160259978-2">
+<script src="https://www.googletagmanager.com/gtag/js?id=UA-160259978-2"></script>
+<script>
+  window.dataLayer=window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js',new Date());
+  gtag('config','UA-160259978-2');
+</script>
+
+</head>
+<body>
+
+  <header id="nav" class="header">
+  <div class="ax-l-i max-w-6xl">
+    <div class="ax-logo">
+      <a class="block" href="/" title="KrisKelly"><span class="font-semibold text-raven-900">KrisKelly</span></a>
+    </div>
+    <div class="ax-user">
+      <a class="p-2 w-8 h-8 block text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" target="_blank" rel="noopener nofollow" href="https://www.google.com/search?q=site:example.com" title="Search">
+        <svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M2.67 12.804c0-5.6 4.544-10.134 10.133-10.134s10.134 4.544 10.134 10.134-4.544 10.133-10.134 10.133S2.67 18.393 2.67 12.804zm28.943 16.923l-8.868-8.868c4.287-5.3 3.68-13.012-1.378-17.57S8.564-1.066 3.75 3.75s-5.017 12.558-.46 17.618 12.28 5.665 17.57 1.378l8.868 8.868a1.33 1.33 0 0 0 2.231-.597c.123-.46-.008-.952-.345-1.29h0z"/></svg>
+
+      </a>
+      <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/posts/">
+        Posts
+      </a>
+    </div>
+  </div>
+
+  
+</header>
+
+  <main>
+<div class="default-single">
+  <div class="ax-title ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <h1 class="post-title font-content-title font-normal leading-tight tracking-default text-40">Part 2: Implementing a GraphQL server</h1>
+      <p class="post-subtitle font-content-sans font-light text-xl text-raven-500 mt-3">In which we set up GraphQL in go using gqlgen</p>
+
+      <div class="ax-meta flex items-center mt-5">
+        <div class="flex-grow min-w-0">
+          <div class="flex items-center">
+  <div class="flex-shrink-0">
+    <img
+    class="w-12 h-12 sm:w-14 sm:h-14 object-cover p-3px rounded-full border border-blue-300"
+    src="/images/kris.jpg"
+    alt="Kris Kelly">
+  </div>
+  <div class="flex-shrink-0 ml-2 leading-tight font-content-sans">
+    <a class="block text-sm text-raven-800 hover:text-raven-900 hover:underline focus:underline" target="_blank" rel="noopener nofollow" title="Kris Kelly" href="https://kriskelly.github.io">Kris Kelly</a>
+    <time class="text-sm text-raven-500" datetime="2020-07-21T01:00:00Z">Jul 20, 2020 6:00PM</time>
+  </div>
+</div>
+
+        </div>
+        <div>
+          <div class="flex items-center">
+  <a class="flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Twitter" href="https://twitter.com/intent/tweet?text=Part%202%3a%20Implementing%20a%20GraphQL%20server%20by%20%40%25%21s%28%3cnil%3e%29%20https%3a%2f%2fkriskelly.github.io%2fpart2-go-graphql%2f"><svg class="w-6 h-6 fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg>
+</a>
+  <a class="ml-3 flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Facebook" href="https://www.facebook.com/dialog/share?app_id=&display=page&href=https%3a%2f%2fkriskelly.github.io%2fpart2-go-graphql%2f"><svg class="w-6 h-6 fill-current" viewBox="-7 -3.5 39 39" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M30.234 0H1.765C.8.001 0 .79 0 1.766v28.47C.001 31.2.79 32 1.766 32h15.328V19.625h-4.156V14.78h4.156v-3.564c0-4.134 2.523-6.384 6.21-6.384 1.766 0 3.284.13 3.726.2v4.32h-2.543c-2.006 0-2.394.953-2.394 2.352v3.085h4.797l-.625 4.844h-4.172V32h8.14C31.21 32 32 31.2 32 30.234V1.765C32 .8 31.21 0 30.234 0z"/></svg>
+</a>
+</div>
+
+        </div>
+      </div>
+    </div>
+  </div><div class="ax-content ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <article class="cdata">
+<p>Welcome to Part 2 of this tutorial series. In the <a href="/go-k8s-part1/">last section</a>, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we'll set up a GraphQL server with a couple of example queries and mutations.</p>
+<p>First we are going to add the <a href="https://gqlgen.com/">gqlgen</a> library to our project. They've got a good &quot;Getting Started&quot; tutorial which we will basically be following for the first part of this.</p>
+<pre><code>$ cd dating-app-example
+$ go get github.com/99designs/gqlgen
+</code></pre><p>At this point we could continue following the gqlgen tutorial and run <code>go run github.com/99designs/gqlgen init</code> to initialize the project structure, but since we have our own opinions about how the project should be structured, let's start with a custom config file and use that to generate the code we need.</p>
+<p>Copy the following config into a <code>gqlgen.yml</code> file in the root of the project:</p>
+<pre><code># Where are all the schema files located? globs are supported eg  src/**/*.graphqls
+schema:
+  - internal/graph/*.graphqls
+
+# Where should the generated server code go?
+exec:
+  filename: internal/graph/generated/generated.go
+  package: generated
+
+# Where should any generated models go?
+model:
+  filename: internal/model/models_gen.go
+  package: model
+
+# Where should the resolver implementations go?
+resolver:
+  layout: follow-schema
+  dir: internal/graph
+  package: graph
+
+# gqlgen will search for any type names in the schema in these go packages
+# if they match it will use them, otherwise it will generate them.
+autobind:
+  - &quot;github.com/kriskelly/dating-app-example/internal/model&quot;
+
+# This section declares type mapping between the GraphQL and go type systems
+#
+# The first line in each type will be used as defaults for resolver arguments and
+# modelgen, the others will be allowed when binding to fields. Configure them to
+# your liking
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.ID
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int64
+      - github.com/99designs/gqlgen/graphql.Int32
+
+</code></pre><p>The auto-generated comments in this file do a good job of explaining each setting, but the gist is that we are just modifying the paths to point to <code>internal/graph</code> and <code>internal/model</code> as the locations for our GraphQL resolvers and models, respectively.</p>
+<p>Before we generate any code, let's also specify the GraphQL schema that we want to build by putting the following in <code>internal/graph/schema.graphqls</code>:</p>
+<pre><code>type User {
+  id: ID!
+  name: String!
+  email: String!
+  password: String!
+}
+
+type Query {
+  me: User!
+}
+
+input NewUser {
+  name: String!
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  login(email: String!, password: String!): User!
+  signup(input: NewUser!): User!
+}
+</code></pre><p>This defines enough types, mutations, and queries to get us through a basic signup/login flow for a user.</p>
+<p>One last thing to do before we generate any code is to define our User model. Because we specified the <code>autobind</code> setting in our config file, <code>gqlgen</code> will look for models that we have defined ourselves and use those instead of auto-generating that code. So let's define our own User model first in <code>internal/model/user.go</code>:</p>
+<pre><code>package model
+
+// User model
+type User struct {
+	ID       string `json:&quot;id&quot;`
+	Name     string `json:&quot;name&quot;`
+	Email    string `json:&quot;email&quot;`
+	Password string `json:&quot;password&quot;`
+}
+</code></pre><p>The list of fields here matches what we declared in our GraphQL schema. The JSON annotation names should also match the names of fields in the schema. Now let's generate the code for the resolvers:</p>
+<pre><code>$ go run github.com/99designs/gqlgen
+</code></pre><p>This will generate some files in <code>internal/graph</code>, one of which is <code>schema.resolvers.go</code>. Let's talk a look at this file first. There you'll see some stubs for resolvers, for example:</p>
+<pre><code>func (r *mutationResolver) Login(ctx context.Context, email string, password string) (*model.User, error) {
+	panic(fmt.Errorf(&quot;not implemented&quot;))
+}
+</code></pre><p>This is where the bulk of our resolver logic will go. But let's not worry about that just yet. We've got one more step before we get a live GraphQL server up and running. Let's modify our original <code>api.go</code> file to serve the GraphQL API. Note that this is the same code that gets generated if you had initialized the project using <code>go run github.com/99designs/gqlgen init</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;net/http&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+
+	<span class="s">&#34;github.com/99designs/gqlgen/graphql/handler&#34;</span>
+	<span class="s">&#34;github.com/99designs/gqlgen/graphql/playground&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/graph&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/graph/generated&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">const</span> <span class="nx">defaultPort</span> <span class="p">=</span> <span class="s">&#34;3000&#34;</span>
+
+<span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">port</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="s">&#34;PORT&#34;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">port</span> <span class="o">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+		<span class="nx">port</span> <span class="p">=</span> <span class="nx">defaultPort</span>
+	<span class="p">}</span>
+
+	<span class="nx">srv</span> <span class="o">:=</span> <span class="nx">handler</span><span class="p">.</span><span class="nf">NewDefaultServer</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nf">NewExecutableSchema</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">Resolvers</span><span class="p">:</span> <span class="o">&amp;</span><span class="nx">graph</span><span class="p">.</span><span class="nx">Resolver</span><span class="p">{}}))</span>
+
+	<span class="nx">http</span><span class="p">.</span><span class="nf">Handle</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">,</span> <span class="nx">playground</span><span class="p">.</span><span class="nf">Handler</span><span class="p">(</span><span class="s">&#34;GraphQL playground&#34;</span><span class="p">,</span> <span class="s">&#34;/query&#34;</span><span class="p">))</span>
+	<span class="nx">http</span><span class="p">.</span><span class="nf">Handle</span><span class="p">(</span><span class="s">&#34;/query&#34;</span><span class="p">,</span> <span class="nx">srv</span><span class="p">)</span>
+
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Printf</span><span class="p">(</span><span class="s">&#34;connect to http://localhost:%s/ for GraphQL playground&#34;</span><span class="p">,</span> <span class="nx">port</span><span class="p">)</span>
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">http</span><span class="p">.</span><span class="nf">ListenAndServe</span><span class="p">(</span><span class="s">&#34;:&#34;</span><span class="o">+</span><span class="nx">port</span><span class="p">,</span> <span class="kc">nil</span><span class="p">))</span>
+<span class="p">}</span>
+</code></pre></div><p>We can see from this code that the GraphQL API is served at <code>localhost:3000/query</code>, and we've also now got a GraphQL playground accessible at <code>localhost:3000</code>. Go ahead and open the playground in your browser. Now you should be able to run a query like:</p>
+<div class="highlight"><pre class="chroma"><code class="language-graphql" data-lang="graphql"><span class="kd">query</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">me</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="py">id</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>You should see an &quot;internal system error&quot; message in the response. If you go back to the Tilt console, you can see the <code>panic()</code> error message printed as a long, scary stack trace starting something like this:</p>
+<pre><code>not implemented
+
+goroutine 5 [running]:
+runtime/debug.Stack(0x1, 0x0, 0x0)
+	/usr/local/go/src/runtime/debug/stack.go:24 +0x9d
+runtime/debug.PrintStack()
+	/usr/local/go/src/runtime/debug/stack.go:16 +0x22
+github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x8181c0, 0xc0003549d0, 0xc000022a80, 0x7fcfbf2077d0)
+...
+</code></pre><p>That's because all the resolver calls currently panic. This is good though, because now we have feedback that the system is working end-to-end. Now we can start implementing our resolvers!</p>
+<p>Since we aren't using a real database in our initial implementation, we can use the <code>Resolver</code> struct to maintain state and imitate a user authentication system. Let's start by replacing the contents of our <code>resolver.go</code> file with the following:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">graph</span>
+
+<span class="kn">import</span> <span class="s">&#34;github.com/kriskelly/dating-app-example/internal/model&#34;</span>
+
+<span class="kd">type</span> <span class="nx">Resolver</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">users</span>       <span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span>
+	<span class="nx">currentUser</span> <span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">NewResolver</span><span class="p">()</span> <span class="o">*</span><span class="nx">Resolver</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">Resolver</span><span class="p">{</span>
+		<span class="nx">users</span><span class="p">:</span> <span class="nb">make</span><span class="p">(</span><span class="kd">map</span><span class="p">[</span><span class="kt">string</span><span class="p">]</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">),</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div><p>This does a couple of things: it adds some attributes to the struct for maintaining state, and it adds an initializer called <code>NewResolver()</code> to ensure that those attributes are initialized correctly. For the map of users, we need to initialize a new empty map using <code>make()</code>.</p>
+<p>Since we need to use the new initializer, go back to <code>api.go</code> and modify the line that generates the GraphQL server so that it looks like the following:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang">	<span class="nx">resolver</span> <span class="o">:=</span> <span class="nx">graph</span><span class="p">.</span><span class="nf">NewResolver</span><span class="p">()</span>
+	<span class="nx">srv</span> <span class="o">:=</span> <span class="nx">handler</span><span class="p">.</span><span class="nf">NewDefaultServer</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nf">NewExecutableSchema</span><span class="p">(</span><span class="nx">generated</span><span class="p">.</span><span class="nx">Config</span><span class="p">{</span><span class="nx">Resolvers</span><span class="p">:</span> <span class="nx">resolver</span><span class="p">}))</span>
+</code></pre></div><p>Now let's pop over to where we implement our queries and mutations. Replace the relevant functions with the following code:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">mutationResolver</span><span class="p">)</span> <span class="nf">Login</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">email</span> <span class="kt">string</span><span class="p">,</span> <span class="nx">password</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">user</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">users</span><span class="p">[</span><span class="nx">email</span><span class="p">]</span>
+	<span class="k">if</span> <span class="nx">user</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;Invalid email&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">if</span> <span class="nx">user</span><span class="p">.</span><span class="nx">Password</span> <span class="o">!=</span> <span class="nx">password</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;Invalid password&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">r</span><span class="p">.</span><span class="nx">currentUser</span> <span class="p">=</span> <span class="nx">user</span>
+	<span class="k">return</span> <span class="nx">user</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">mutationResolver</span><span class="p">)</span> <span class="nf">Signup</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">,</span> <span class="nx">input</span> <span class="nx">model</span><span class="p">.</span><span class="nx">NewUser</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">newUser</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">{</span>
+		<span class="nx">Name</span><span class="p">:</span>     <span class="nx">input</span><span class="p">.</span><span class="nx">Name</span><span class="p">,</span>
+		<span class="nx">Email</span><span class="p">:</span>    <span class="nx">input</span><span class="p">.</span><span class="nx">Email</span><span class="p">,</span>
+		<span class="nx">Password</span><span class="p">:</span> <span class="nx">input</span><span class="p">.</span><span class="nx">Password</span><span class="p">,</span>
+	<span class="p">}</span>
+	<span class="nx">id</span> <span class="o">:=</span> <span class="nx">uuid</span><span class="p">.</span><span class="nf">New</span><span class="p">().</span><span class="nf">String</span><span class="p">()</span>
+	<span class="nx">newUser</span><span class="p">.</span><span class="nx">ID</span> <span class="p">=</span> <span class="nx">id</span>
+	<span class="nx">r</span><span class="p">.</span><span class="nx">users</span><span class="p">[</span><span class="nx">newUser</span><span class="p">.</span><span class="nx">Email</span><span class="p">]</span> <span class="p">=</span> <span class="nx">newUser</span>
+	<span class="k">return</span> <span class="nx">newUser</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="p">(</span><span class="nx">r</span> <span class="o">*</span><span class="nx">queryResolver</span><span class="p">)</span> <span class="nf">Me</span><span class="p">(</span><span class="nx">ctx</span> <span class="nx">context</span><span class="p">.</span><span class="nx">Context</span><span class="p">)</span> <span class="p">(</span><span class="o">*</span><span class="nx">model</span><span class="p">.</span><span class="nx">User</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">user</span> <span class="o">:=</span> <span class="nx">r</span><span class="p">.</span><span class="nx">currentUser</span>
+	<span class="k">if</span> <span class="nx">user</span> <span class="o">==</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="kc">nil</span><span class="p">,</span> <span class="nx">errors</span><span class="p">.</span><span class="nf">New</span><span class="p">(</span><span class="s">&#34;No current user&#34;</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">user</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</code></pre></div><p>You'll see that the <code>Signup()</code> mutation creates a new <code>User</code> instance and caches it in the resolver. <code>Login()</code> does a lookup based on the email address and sets the <code>currentUser</code>, and <code>Me()</code> looks for the current user. All of this is simplified to work without a database or session management, so it goes without saying that you wouldn't do this in a real app. But for demonstration purposes, you get the gist.</p>
+<p>I wanted unique IDs for the users, so I added the <a href="https://github.com/google/uuid">github.com/google/uuid</a> and generated the ID like so:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="nx">id</span> <span class="o">:=</span> <span class="nx">uuid</span><span class="p">.</span><span class="nf">New</span><span class="p">().</span><span class="nf">String</span><span class="p">()</span>
+</code></pre></div><p>This isn't important for this test implementation, so feel free to leave that out.</p>
+<p>Anyway, now you should be able to fire up the GraphQL playground and make some moves. Try a <code>signup()</code> mutation, followed by <code>login()</code> and <code>me()</code>. For example:</p>
+<div class="highlight"><pre class="chroma"><code class="language-graphql" data-lang="graphql"><span class="kd">mutation</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">signup</span><span class="p">(</span><span class="kd">input</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nc">name</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;Foobar&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">email</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo@bar.com&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">password</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo&#34;</span><span class="w"> </span><span class="p">})</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="nc">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c"># Then in a separate call:</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="nc">mutation</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="py">login</span><span class="p">(</span><span class="py">email</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo@bar.com&#34;</span><span class="p">,</span><span class="w"> </span><span class="nc">password</span><span class="p">:</span><span class="w"> </span><span class="s">&#34;foo&#34;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="nc">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="c"># Then:</span><span class="w">
+</span><span class="w">
+</span><span class="w"></span><span class="kd">query</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">  </span><span class="nc">me</span><span class="w"> </span><span class="p">{</span><span class="w">
+</span><span class="w">    </span><span class="py">name</span><span class="w">
+</span><span class="w">  </span><span class="p">}</span><span class="w">
+</span><span class="w"></span><span class="p">}</span><span class="w">
+</span></code></pre></div><p>If all's well, then you've got a functioning GraphQL server!</p>
+<p>Be sure to tune in for Part 3, where-in we will integrate Dgraph, a shiny new NoSQL graph database, to store user data and relationships.</p>
+
+      </article>
+      
+
+      
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <footer class="footer">
+  <div class="ax-l-i max-w-6xl">
+    <nav class="flex items-center justify-center">
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/posts/">Posts</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/about/">About</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/contact/">Contact</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/privacy/">Privacy</a>
+    </nav>
+    <div class="footer-social flex items-center justify-center mt-4">
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Twitter" href="https://twitter.com/axiomtheme"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Github" href="https://github.com/user"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M15.998 0C7.164 0 0 7.35 0 16.417 0 23.67 4.584 29.82 10.944 31.994c.8.15 1.092-.356 1.092-.79l-.022-2.792c-4.45.99-5.4-2.202-5.4-2.202-.726-1.896-1.776-2.4-1.776-2.4-1.454-1.018.108-.998.108-.998 1.606.117 2.45 1.693 2.45 1.693 1.428 2.507 3.746 1.784 4.658 1.363.144-1.06.558-1.784 1.016-2.195-3.552-.415-7.288-1.823-7.288-8.113 0-1.792.624-3.258 1.648-4.406-.166-.415-.714-2.085.156-4.344 0 0 1.344-.44 4.4 1.683 1.276-.364 2.644-.546 4.006-.552a14.98 14.98 0 0 1 4.006.554C23.062 6.37 24.404 6.8 24.404 6.8c.872 2.26.324 3.93.16 4.344 1.026 1.148 1.644 2.614 1.644 4.406 0 6.306-3.74 7.694-7.304 8.1.574.507 1.086 1.51 1.086 3.04l-.02 4.503c0 .44.288.95 1.1.788C27.42 29.817 32 23.667 32 16.417 32 7.35 24.836 0 15.998 0z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Instagram" href="https://instagram.com/user"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M4 32h24c2.258 0 4-1.742 4-4V4c0-2.26-1.742-4-4-4H4C1.74 0 0 1.74 0 4v24c0 2.258 1.74 4 4 4zM22 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zm-5.977 4.714c3.55 0 6.425 2.787 6.425 6.226s-2.876 6.226-6.425 6.226S9.6 19.377 9.6 15.94s2.878-6.226 6.423-6.226zM4 13l2.493.542c-.274.89-.413 1.815-.413 2.745 0 5.318 4.454 9.634 9.943 9.634s9.944-4.315 9.944-9.634c0-.955-.145-1.875-.412-2.745L28 13v14c0 .7-.3 1-1 1H5c-.7 0-1-.3-1-1V13z"/></svg></a>
+    </div>
+
+    <div class="footer-copyright text-sm text-center text-gray-500 mt-4">
+      &#169; 2019-2020 KrisKelly
+    </div>
+    <div class="text-sm sm:text-xs text-center text-gray-500 mt-2">
+      Powered by <a href="https://www.axiomtheme.com/?utm_source=theme-footer&utm_medium=website&utm_campaign=referral">Axiom</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/bundle.js?v=1595347808"></script>
+
+
+</body>
+</html>
