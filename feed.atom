@@ -9,11 +9,11 @@
   </author>
   <icon>https://www.kriskelly.me/image/brand/icon-1-1.png</icon>
   <logo>https://www.kriskelly.me/image/brand/icon-2-1.png</logo>
-  <updated>2020-07-23T17:40:00Z</updated>
+  <updated>2020-07-23T18:46:05Z</updated>
   <link rel="self" type="application/atom+xml" href="https://www.kriskelly.me/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://www.kriskelly.me/" hreflang="en-us"/>
   <entry>
-    <title>Part 2: Implementing a GraphQL server in Go</title>
+    <title>Resumé-Driven Development Part 2: Implementing a GraphQL server in Go</title>
     <author>
       <name>Kris Kelly</name>
       <uri></uri>
@@ -238,7 +238,7 @@ github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x818
 <p>Be sure to tune in for Part 3, where-in we will integrate Dgraph, a shiny new NoSQL graph database, to store user data and relationships.</p>]]></content>
   </entry>
   <entry>
-    <title>Part 1: Setting up a Golang development environment with Kubernetes and Tilt</title>
+    <title>Resumé-Driven Development Part 1: Setting up a Golang development environment with Kubernetes and Tilt</title>
     <author>
       <name>Kris Kelly</name>
       <uri></uri>
@@ -247,8 +247,9 @@ github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x818
     <updated>2020-07-21T00:00:00Z</updated>
     <published>2020-07-21T00:00:00Z</published>
     <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! In this series, we're going to be practicing something called resumé-driven development (RDD), starting with setting up a development environment and continuing through the basics of incorporating several buzzword-y technologies into our app. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be <del>desperately confused</del> good to go!</p>
-<p>Most of these tutorials involve building a todo app. Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> fascination for me: <em>dating</em>. Since the pandemic put a damper on in-person social interactions, those of us unfortunate enough to be single during this time are stuck with the virtual approach, destined to never meet in person. For those of us who weren't very good at this stuff in the first place, it's all gone sideways. Anyway instead of complaining, let's build a dating app! Or at least, let's take a <em>swipe</em> at it (I'm so sorry).</p>
-<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. So I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app (most likely Next.js + Apollo), but then again, probably not.</p>
+<blockquote>DISCLAIMER: While seeming to be satire, this tutorial is actually meant to be useful. If you find it to be neither amusing nor useful, then please film a video of yourself reacting to it, then post that on youtube, then send me a link, and I will watch that video as I cry myself to sleep late into the night.</blockquote>
+<p>Most of these tutorials involve building a todo app. Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> fascination for me: <em>dating</em>. I think many of us who are unfortunate enough to be single during this time of plague can agree that it's not fun. Anyway instead of trying to deal with that, let's build a dating app! Or at least, let's take a <em>swipe</em> at it (I'm so sorry).</p>
+<p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. Thus I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app (most likely Next.js + Apollo), but then again, probably not.</p>
 <p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique name:</p>
 <pre><code>$ mkdir dating-app-example
 $ cd dating-app-example
@@ -286,7 +287,7 @@ func main() {
 <pre><code>$ go run cmd/api.go
 </code></pre><p>Now open up <code>localhost:3000</code> in your browser. Congratulations, a running program! Even if you're not familiar with Go, this code should be relatively self-explanatory. It specifies a function that runs when you access the server at the root path &quot;/&quot;, and it sends the string &quot;ok&quot; in the response. For a better introduction to the <code>net/http</code> library, Go has excellent <a href="https://golang.org/doc/articles/wiki/#tmp_3">documentation</a>.</p>
 <p>Now that that's done, feel free to take a water break. We are going to use a number of brain cells for this tutorial, so it's important to stay hydrated. When you're back, we're going to set up the Kubernetes cluster...</p>
-<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Tilt's main feature as far as I can tell is that it enables a productive dev environment by managing your local Kubernetes cluster and rebuilding containers automatically as you go. It's best suited to multi-service architectures, so it's definitely overkill for what we are trying to do right now. Go ahead and follow the <a href="https://docs.tilt.dev/install.html">instructions</a> to install it.</p>
+<p>To set up our Kubernetes cluster development environment, we are going to install a tool called <a href="https://docs.tilt.dev/">Tilt</a>. Tilt's main feature as far as I can tell is that it enables a productive dev environment by managing your local Kubernetes cluster and rebuilding containers automatically as you go. It's best suited to multi-service architectures, so it's probably overkill for what we are trying to do right now. Perfect! Go ahead and follow the <a href="https://docs.tilt.dev/install.html">instructions</a> to install it.</p>
 <p>In order to use Tilt, we need to have a Kubernetes cluster running on our local machine. If you're on Mac, the fastest way to get that running is to install <a href="https://docs.docker.com/docker-for-mac/install/">Docker for Mac</a>. Once you've got that installed, Docker has a setting to enable Kubernetes. Enable that setting, and eventually you should see a &quot;Kubernetes is running&quot; message when you click on the Docker icon at the top of the screen.</p>
 <p>&quot;Why are we using Kubernetes for this dead-simple app?&quot; you may ask. The quick answer is that Kubernetes is a required component when practicing resumé-driven development. That said, one of the nice things about Go is that you can build binaries that run without any dependencies, so if you wanted to skip this tutorial, you could just continue to compile and run the app manually in the terminal as we did before. Given Docker's <a href="https://www.reddit.com/r/docker/comments/bh8rpf/docker_performance_on_macos_vs_native_linux/">abysmal</a> performance on mac, that would probably even save us a few gray hairs.</p>
 <p>But that's probably not why you're reading this. The fun starts when we run this app as a Docker container on a local k8s cluster, leveraging Tilt for live updating and k8s for managing our database(s), thus getting us as close as we can to what will eventually be our production environment.</p>
