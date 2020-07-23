@@ -2,23 +2,23 @@
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-us">
   <title>Kris Kelly&#39;s Shameless Attempt at Personal Branding</title>
   <subtitle></subtitle>
-  <id>https://kriskelly.github.io/</id>
+  <id>https://www.kriskelly.me/</id>
   <author>
     <name>Kris Kelly&#39;s Shameless Attempt at Personal Branding</name>
-    <uri>https://kriskelly.github.io/</uri>
+    <uri>https://www.kriskelly.me/</uri>
   </author>
-  <icon>https://kriskelly.github.io/image/brand/icon-1-1.png</icon>
-  <logo>https://kriskelly.github.io/image/brand/icon-2-1.png</logo>
-  <updated>2020-07-23T17:37:16Z</updated>
-  <link rel="self" type="application/atom+xml" href="https://kriskelly.github.io/feed.atom" hreflang="en-us"/>
-  <link rel="alternate" type="text/html" href="https://kriskelly.github.io/" hreflang="en-us"/>
+  <icon>https://www.kriskelly.me/image/brand/icon-1-1.png</icon>
+  <logo>https://www.kriskelly.me/image/brand/icon-2-1.png</logo>
+  <updated>2020-07-23T17:40:00Z</updated>
+  <link rel="self" type="application/atom+xml" href="https://www.kriskelly.me/feed.atom" hreflang="en-us"/>
+  <link rel="alternate" type="text/html" href="https://www.kriskelly.me/" hreflang="en-us"/>
   <entry>
     <title>Part 2: Implementing a GraphQL server in Go</title>
     <author>
       <name>Kris Kelly</name>
       <uri></uri>
     </author>
-    <id>https://kriskelly.github.io/part2-go-graphql/</id>
+    <id>https://www.kriskelly.me/part2-go-graphql/</id>
     <updated>2020-07-21T01:00:00Z</updated>
     <published>2020-07-21T01:00:00Z</published>
     <content type="html"><![CDATA[<p>Welcome to Part 2 of this tutorial series. In the <a href="/part1-go-k8s/">last section</a>, we started by setting up a basic Go service running in a Kubernetes development environment. In this part, we'll set up a GraphQL server with a couple of example queries and mutations.</p>
@@ -243,7 +243,7 @@ github.com/99designs/gqlgen/graphql.DefaultRecover(0x93cd60, 0xc00035d290, 0x818
       <name>Kris Kelly</name>
       <uri></uri>
     </author>
-    <id>https://kriskelly.github.io/part1-go-k8s/</id>
+    <id>https://www.kriskelly.me/part1-go-k8s/</id>
     <updated>2020-07-21T00:00:00Z</updated>
     <published>2020-07-21T00:00:00Z</published>
     <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! In this series, we're going to be practicing something called resumé-driven development (RDD), starting with setting up a development environment and continuing through the basics of incorporating several buzzword-y technologies into our app. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. As long as you have a basic understanding of object-oriented programming and server-side coding, you should be <del>desperately confused</del> good to go!</p>

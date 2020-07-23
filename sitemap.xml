@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://kriskelly.github.io/about/</loc>
+    <loc>https://www.kriskelly.me/about/</loc>
     <lastmod>2020-07-21T16:20:15Z</lastmod>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/</loc>
+    <loc>https://www.kriskelly.me/</loc>
     <lastmod>2020-07-21T01:00:00Z</lastmod>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/part2-go-graphql/</loc>
+    <loc>https://www.kriskelly.me/part2-go-graphql/</loc>
     <lastmod>2020-07-21T01:00:00Z</lastmod>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/posts/</loc>
+    <loc>https://www.kriskelly.me/posts/</loc>
     <lastmod>2020-07-21T01:00:00Z</lastmod>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/part1-go-k8s/</loc>
+    <loc>https://www.kriskelly.me/part1-go-k8s/</loc>
     <lastmod>2020-07-21T00:00:00Z</lastmod>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/categories/</loc>
+    <loc>https://www.kriskelly.me/categories/</loc>
   </url>
   <url>
-    <loc>https://kriskelly.github.io/tags/</loc>
+    <loc>https://www.kriskelly.me/tags/</loc>
   </url>
 </urlset>
