@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-us">
-  <title>BLOG TITLE GOES HERE</title>
+  <title>Resumé-Driven Development*</title>
   <subtitle></subtitle>
   <id>https://www.kriskelly.me/</id>
   <author>
-    <name>BLOG TITLE GOES HERE</name>
+    <name>Resumé-Driven Development*</name>
     <uri>https://www.kriskelly.me/</uri>
   </author>
   <rights>Kris Kelly</rights>
   <icon>https://www.kriskelly.me/image/brand/icon-1-1.png</icon>
   <logo>https://www.kriskelly.me/image/brand/icon-2-1.png</logo>
-  <updated>2020-07-24T23:47:30Z</updated>
+  <updated>2020-07-26T21:34:47Z</updated>
   <link rel="self" type="application/atom+xml" href="https://www.kriskelly.me/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://www.kriskelly.me/" hreflang="en-us"/>
   <entry>
@@ -22,11 +22,11 @@
     <id>https://www.kriskelly.me/part1-go-k8s/</id>
     <updated>2020-07-21T00:00:00Z</updated>
     <published>2020-07-21T00:00:00Z</published>
-    <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! In this series, we're going to be practicing something called resumé-driven development (RDD), starting with setting up our development environment and continuing through the basics of incorporating several unnecessary but buzzword-y technologies into our app. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. In fact, I'm going to pretend like you haven't heard about any of it. As long as you have a basic understanding of object-oriented programming and backend web development, you should be <del>desperately confused</del> good to go!</p>
+    <content type="html"><![CDATA[<p>I've never done a blog tutorial series before, so I wanted to start out with something simple... Just kidding! In this series, we're going to be practicing something called <a href="https://rdd.io/">resumé-driven development</a> (RDD), starting with setting up our development environment and continuing through the basics of incorporating several unnecessary but buzzword-y technologies into our app. In the process, hopefully you'll learn something without nearly as much googling as I had to do. No familiarity with any of the particular technologies is required. In fact, I'm going to pretend like you haven't heard about any of it. As long as you have a basic understanding of object-oriented programming and backend web development, you should be <del>desperately confused</del> good to go!</p>
 <blockquote>DISCLAIMER: While seeming to be satire, this tutorial is actually meant to be useful. If you find it to be neither amusing nor useful, then please film a video of yourself reacting disapprovingly, post it on youtube, then send me a link, and I will watch that video as I cry myself to sleep late into the night.</blockquote>
 <p>Most of these tutorials involve building a todo app. Todo apps are boring. I'm a firm believer that the projects that motivate us best are the ones in which we &quot;scratch our own itch&quot;, so I've decided to focus on a topic that is an endless source of <del>frustration</del> fascination for me: <em>dating</em>. I think many of us who are unfortunate enough to be single during this time of plague can agree that it's not fun. Anyway instead of learning to be alone or unpacking emotional baggage, let's build a dating app! Or at least, let's take a... <em>swipe</em> at it (I'm so sorry).</p>
 <p>When it comes to apps, and particularly dating apps, UX is everything. Therefore for this tutorial series, we'll be building the API portion that no one will ever see. Because we are bored, we're going to overcomplicate this thing considerably. Thus I've decided to build it as a GraphQL API written in Go, running on Kubernetes, using both a traditional RDBMS (Postgres) and a NoSQL graph database (Dgraph), with a cloud service (AWS S3) thrown in there for good measure. I might do a series in the future about building the frontend app (most likely Next.js + Apollo), but then again, probably not.</p>
-<p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique name:</p>
+<p>Part 1 of this tutorial will involve setting up our project using Go, Kubernetes, and Tilt. In this case, we'll be setting up a local development Kubernetes cluster with a &quot;Hello World&quot; Go microservice. The first step is to use our big brain skills to give it a unique and exciting name:</p>
 <pre><code>$ mkdir dating-app-example
 $ cd dating-app-example
 </code></pre><p>The next step is to initialize our Go service. First, let's make sure Go is installed. You can install Go by following instructions <a href="https://golang.org/doc/install">here</a>, or install it via <a href="https://brew.sh/">homebrew</a>. Now let's initialize the project:</p>
@@ -90,7 +90,7 @@ COPY . .
 RUN go build -o /app/build/api /app/cmd
 
 CMD [&quot;/app/build/api&quot;]
-</code></pre><p>I won't go over the basics of how Docker works, but the gist is that this copies the code over to the Docker image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. NOTE: The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
+</code></pre><p>I won't go over the <a href="https://docs.docker.com/get-started/">basics</a> of how Docker works, but the gist is that this copies the code over to the Docker image, downloads any dependencies listed in <code>go.mod</code>, builds the executable, and runs it. Since we'll be building this Docker image frequently during development, there's a &quot;trick&quot; for improving the build performance via the <code>COPY go.mod .</code> command that runs before the main <code>COPY . .</code> command. That allows Docker to cache the list of Go modules so that Docker will only re-download those dependencies if that list changes. NOTE: The <code>go.sum</code> file does not exist because there are no dependencies yet, so you'll want to uncomment that line of the Dockerfile once you've added some dependencies.</p>
 <p>Next up, we want to add a basic deployment file for our k8s cluster. We'll call it <code>deployments/api.yaml</code>:</p>
 <pre><code>apiVersion: apps/v1
 kind: Deployment
