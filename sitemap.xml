@@ -2,14 +2,18 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://www.kriskelly.me/posts/</loc>
-    <lastmod>2020-08-04T01:00:00Z</lastmod>
-  </url>
-  <url>
-    <loc>https://www.kriskelly.me/part2-go-graphql/</loc>
-    <lastmod>2020-08-04T01:00:00Z</lastmod>
+    <lastmod>2020-08-11T05:00:00Z</lastmod>
   </url>
   <url>
     <loc>https://www.kriskelly.me/</loc>
+    <lastmod>2020-08-11T05:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.kriskelly.me/part3-go-dgraph/</loc>
+    <lastmod>2020-08-11T05:00:00Z</lastmod>
+  </url>
+  <url>
+    <loc>https://www.kriskelly.me/part2-go-graphql/</loc>
     <lastmod>2020-08-04T01:00:00Z</lastmod>
   </url>
   <url>

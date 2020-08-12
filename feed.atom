@@ -1,18 +1,196 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <feed xmlns="http://www.w3.org/2005/Atom" xml:lang="en-us">
-  <title>Resumé-Driven Development*</title>
+  <title>Resumé-Driven Development</title>
   <subtitle></subtitle>
   <id>https://www.kriskelly.me/</id>
   <author>
-    <name>Resumé-Driven Development*</name>
+    <name>Resumé-Driven Development</name>
     <uri>https://www.kriskelly.me/</uri>
   </author>
   <rights>Kris Kelly</rights>
   <icon>https://www.kriskelly.me/image/brand/icon-1-1.png</icon>
   <logo>https://www.kriskelly.me/image/brand/icon-2-1.png</logo>
-  <updated>2020-08-04T17:32:16Z</updated>
+  <updated>2020-08-12T15:52:57Z</updated>
   <link rel="self" type="application/atom+xml" href="https://www.kriskelly.me/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://www.kriskelly.me/" hreflang="en-us"/>
+  <entry>
+    <title>Resumé-Driven Development Part 3: Dgraph because it sounds cool</title>
+    <author>
+      <name>Kris Kelly</name>
+      <uri></uri>
+    </author>
+    <id>https://www.kriskelly.me/part3-go-dgraph/</id>
+    <updated>2020-08-11T05:00:00Z</updated>
+    <published>2020-08-11T05:00:00Z</published>
+    <content type="html"><![CDATA[<p>So <a href="/part2-go-graphql">last time</a> we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored. We need a database to store our precious data, so that we can mine it for nefarious business purposes later on.</p>
+<p>But this tutorial won't cover any of the various ways in which companies mine your data for $$$. If I knew how to do that, I wouldn't be here writing blog posts <em>ZING</em>. For now we are innocently building a database of user data in order to be able to model the relationships between our users, to track when users like/match each other, who lives in the same city, etc. etc. We could certainly do this the old-fashioned way, by spinning up a traditional database like MySQL or Postgres and dumping the data into tables. How boring, how practical!</p>
+<p>What we are going to do instead is utilize a fancy graph database I found on the internet called <a href="https://dgraph.io/">Dgraph</a>. If you've got a technical background, you're probably familiar with the concept of a graph database. But as I mentioned in an earlier part of this tutorial, I am going to pretend that you are not.</p>
+<p>Graph databases are cool because instead of modeling data as rows in a table, you model it as a graph, i.e. with nodes and edges. For instance, instead of a user being represented by a row in a <code>users</code> table, with fields called name, email, etc. we model an individual user as a node in the graph, and each of the edges corresponds to some data about the user. There's a &quot;name&quot; edge, an &quot;email&quot; edge, etc. This gets interesting when the edges start pointing to other nodes, e.g. an edge called <code>likes</code> that points to another user that the first user &quot;liked&quot; via the app.</p>
+<p>As to why we would do this, I think the simplest explanation is that any dataset with a high number of relationships amongst the various data points is better represented in a format where we can trace those relationships effectively. Do you have a family tree modeled as a graph, and you want to know the names of all your second cousins? There are so many of them, it's hard to keep track, right? I mean, I have that list above my bed but even then I can barely distinguish between the ones on the &quot;love&quot; list and the ones on the &quot;hate&quot; list. What a conundrum, right?</p>
+<p>Well if you modeled that data as a graph, you could easily trace your second cousins, as well as all your &quot;friends&quot; from middle school, then you could add an edge for <code>hated_by_me</code> that pointed from your user to them, and then next time you would just need to traverse the <code>hated_by_me</code> edges to easily keep track of all the friends and family members that you want to remember to hate.</p>
+<p>You could do this with a traditional database, but you'd have to store that data in a set of tables that modeled the relationships between users, and then you'd need to write a query to self-join against the <code>users</code> table umpteen times to traverse the graph of that data. Definitely doable, but fairly inefficient.</p>
+<p>So along comes Dgraph. Dgraph sells itself as a &quot;native GraphQL database&quot;, which not only sounds cool, but is also a good fit for what we are doing now, seeing as we are building a GraphQL API. As such, the queries that we make to Dgraph will ultimately end up looking very similar to the ones we make to our API.</p>
+<p>So anyway, let's get started with Dgraph. There are a whole bunch of ways to <a href="https://dgraph.io/downloads#download-kubernetes">install the thing</a>, but since we already have our local Kubernetes cluster up and running, we are going to take that approach and download the simplest Kubernetes config file they that they have available. Go ahead and download this file into our <code>deployments/</code> directory:</p>
+<pre><code>$ wget https://raw.githubusercontent.com/dgraph-io/dgraph/master/contrib/config/kubernetes/dgraph-single/dgraph-single.yaml -O deployments/dgraph-single.yaml
+</code></pre><p>Now add it to our <code>Tiltfile</code>:</p>
+<pre><code>k8s_yaml('deployments/api.yaml')
+k8s_yaml('deployments/dgraph-single.yaml') # &lt;-- Add this line
+
+docker_build_with_restart('dating-app/api', '.',
+...
+
+k8s_resource('api', port_forwards=[3000])
+k8s_resource('dgraph', port_forwards=[9080]) # &lt;-- And this one
+</code></pre><p>Now you should see a new entry for <code>dgraph</code> in the Tilt console, and if you're lucky, it should be spitting out a bunch of nonsense garbage that you don't need to understand. That's just Kubernetes setting up the dgraph cluster and getting the processes up and running. If you see errors instead, and the dgraph entry is all red and error-y, then you've got a problem. Please pick up the phone and dial emergency services and tell them &quot;the database is broken&quot;. Say only those words, and make sure to repeat slowly if they ask for clarification. Just kidding, don't call 911 without a real emergency! And there's your PSA for the day.</p>
+<p>Now that we've got Dgraph up and running, the next thing we need to do is set up our Dgraph database schema.</p>
+<p>First we need to grab a couple of dependencies:</p>
+<pre><code>$ go get github.com/dgraph-io/dgo/v2
+$ go get google.golang.org/grpc
+</code></pre><p><code>dgo</code> is the Dgraph Go API client, and <code>grpc</code> is a fancy tool originally created by Google that we use to communicate across service boundaries. <a href="https://grpc.io/docs/what-is-grpc/introduction/">Here's a nice introduction</a>, if you're interested. If you're familiar with REST already, then here's a confusing explanation: RPC means &quot;remote procedure call&quot;, and at one point REST was the new hotness that more or less replaced RPC, but now RPC has replaced REST in the sense that gRPC is gaining traction, so now the old thing is new again. Confused? Good! Let's continue.</p>
+<p>Next, let's make a file called <code>internal/dgraph/client.go</code> and put the following in there:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">dgraph</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;flag&#34;</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2&#34;</span>
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2/protos/api&#34;</span>
+
+	<span class="s">&#34;google.golang.org/grpc&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">var</span> <span class="p">(</span>
+	<span class="nx">dgraph</span> <span class="p">=</span> <span class="nx">flag</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="s">&#34;DGRAPH_HOST&#34;</span><span class="p">),</span> <span class="s">&#34;Dgraph Alpha address&#34;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1">// Client is our Dgraph API wrapper
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">Client</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">conn</span> <span class="o">*</span><span class="nx">grpc</span><span class="p">.</span><span class="nx">ClientConn</span>
+	<span class="o">*</span><span class="nx">dgo</span><span class="p">.</span><span class="nx">Dgraph</span>
+<span class="p">}</span>
+
+<span class="c1">// NewClient generates an instance of our client
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">NewClient</span><span class="p">()</span> <span class="o">*</span><span class="nx">Client</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">Client</span><span class="p">{}</span>
+<span class="p">}</span>
+
+<span class="c1">// Connect to GRPC
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">Client</span><span class="p">)</span> <span class="nf">Connect</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">flag</span><span class="p">.</span><span class="nf">Parse</span><span class="p">()</span>
+	<span class="nx">conn</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">grpc</span><span class="p">.</span><span class="nf">Dial</span><span class="p">(</span><span class="o">*</span><span class="nx">dgraph</span><span class="p">,</span> <span class="nx">grpc</span><span class="p">.</span><span class="nf">WithInsecure</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">conn</span> <span class="p">=</span> <span class="nx">conn</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">Dgraph</span> <span class="p">=</span> <span class="nx">dgo</span><span class="p">.</span><span class="nf">NewDgraphClient</span><span class="p">(</span><span class="nx">api</span><span class="p">.</span><span class="nf">NewDgraphClient</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="c1">// Close the connection
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">Client</span><span class="p">)</span> <span class="nf">Close</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div><p>Now let's make a new executable called <code>cmd/dgraph/setup.go</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;context&#34;</span>
+	<span class="s">&#34;io/ioutil&#34;</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+	<span class="s">&#34;path/filepath&#34;</span>
+
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2/protos/api&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/dgraph&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nf">readSchema</span><span class="p">()</span> <span class="p">[]</span><span class="kt">byte</span> <span class="p">{</span>
+	<span class="nx">wd</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getwd</span><span class="p">()</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalln</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">path</span> <span class="o">:=</span> <span class="nx">filepath</span><span class="p">.</span><span class="nf">Join</span><span class="p">(</span><span class="nx">wd</span><span class="p">,</span> <span class="s">&#34;./internal/dgraph/dgraph.graphqls&#34;</span><span class="p">)</span>
+	<span class="nx">b</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nf">ReadFile</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalln</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">b</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Setting up the Dgraph schema...&#34;</span><span class="p">)</span>
+
+	<span class="nx">client</span> <span class="o">:=</span> <span class="nx">dgraph</span><span class="p">.</span><span class="nf">NewClient</span><span class="p">()</span>
+	<span class="nx">client</span><span class="p">.</span><span class="nf">Connect</span><span class="p">()</span>
+	<span class="k">defer</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="nx">op</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">api</span><span class="p">.</span><span class="nx">Operation</span><span class="p">{}</span>
+	<span class="nx">op</span><span class="p">.</span><span class="nx">Schema</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nf">readSchema</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Alter</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">op</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Ran Alter Schema on DGraph&#34;</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div><p>And finally, let's make a schema file called <code>internal/dgraph/dgraph.graphqls</code>:</p>
+<pre><code>name: string @index(exact, fulltext) @count .
+email: string @index(exact) .
+password: password .
+liked: [uid] @count @reverse .
+rejected: [uid] @count @reverse .
+matched: [uid] @count @reverse .
+lives_in: uid @reverse .
+
+type User {
+    name
+    email
+    password
+    matched
+    liked
+    rejected
+    lives_in
+}
+
+type City {
+    name
+}
+</code></pre><p>The code in <code>client.go</code> just wraps our <code>dgo</code> API client with some additional code to make and close a connection to the Dgraph server. Our <code>dgraph.graphqls</code> file defines the database schema that we'll be using, and we'll go over that in a bit. The <code>setup.go</code> glues these things together; it reads the schema file, opens a database connection, and runs an <code>Alter</code> operation to modify the schema to match our schema file, like so:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang">	<span class="nx">op</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">api</span><span class="p">.</span><span class="nx">Operation</span><span class="p">{}</span>
+	<span class="nx">op</span><span class="p">.</span><span class="nx">Schema</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nf">readSchema</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Alter</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">op</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+</code></pre></div><p>Now we can dig into the schema file itself. The first thing this file does is define the data types for the different kinds of edges that we can have for our users:</p>
+<pre><code>name: string @index(exact, fulltext) @count .
+email: string @index(exact) .
+password: password .
+liked: [uid] @count @reverse .
+rejected: [uid] @count @reverse .
+matched: [uid] @count @reverse .
+lives_in: uid @reverse .
+</code></pre><p>Some of this might seem self-explanatory. For instance, <code>name: string</code> tells us that the name field should be a string. For the other fields, <code>[uid]</code> indicates that the edge corresponds to an array of nodes, in this case other users. So in this way we can keep track of who liked/rejected who, where people live, etc.</p>
+<p>The <code>@index</code>, <code>@count</code>, etc. parts correspond to database indexes for those fields. <code>@count</code> indexes the count, so we could for instance retrieve the number of users with a specific name. <code>fulltext</code> operates similar to a full-text index in Postgres or MySQL, and <code>@reverse</code> sets up an index that allows us to look up nodes in reverse. That means that instead of having to have a separate edge for <code>liked_by</code>, we could just look up a list of all the users who liked us by checking to see where there's a <code>liked</code> edge that points to us.</p>
+<p>The rest of the schema file defines the various data types for our nodes. In this case we just have <code>User</code> and <code>City</code>:</p>
+<pre><code>type User {
+    name
+    email
+    password
+    matched
+    liked
+    rejected
+    lives_in
+}
+
+type City {
+    name
+}
+</code></pre><p>Types are basically defined similarly to GraphQL, which fits in with Dgraph's branding as a GraphQL database. I'm not entirely sure what happens if you try to create a user with an edge that is not defined on the type, but I'll do that at some point and report back.</p>
+<p>Now that we've got our code set up properly to create the database schema, let's run it on the command line. Note that we are not container-izing this script just yet, as it's more of a one-off. For now we can just run it in the terminal:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nv">DGRAPH_HOST</span><span class="o">=</span>localhost:9080 go run cmd/dgraph/setup.go
+</code></pre></div><p>Couple of things to note about this: we specify the Dgraph host via an environment variable (which we referenced in <code>client.go</code> earlier), and that environment variable points to a port we exposed on localhost earlier in our <code>Tiltfile</code>. Doing this sort of thing allows us to access any service that runs on our Kubernetes cluster as though we were running it outside the confines of the cluster, essentially so that we can poke at the database at our leisure to do things like setting up the schema, verifying the data, etc. We'll look into examining the data later on.</p>
+<p>For now, if you run the script above, you should see a message indicating that the schema was altered. Congratulations to both of us! Congratulations to you for managing to follow my instructions, and also congratulations to me for not f'ing up the instructions. Wins all around.</p>
+<p>Anyway, because everyone's attention span these days is about as long as my middle finger, I'm going to try to keep these posts short and sweet. We've successfully set up our Dgraph database and schema, so the next post is going to be all about querying Dgraph and the various ways of making it do our bidding. See you next week!</p>]]></content>
+  </entry>
   <entry>
     <title>Resumé-Driven Development Part 2: Implementing a GraphQL server in Go</title>
     <author>

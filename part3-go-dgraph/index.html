@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name="hugo-theme" content="Axiom 0.7.0">
+
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/image/brand/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/image/brand/icon-1-1.png">
+  <link rel="canonical" href="https://www.kriskelly.me/part3-go-dgraph/">
+<link rel="preload" as="style" href="/bundle.css?v=1597247577" media="all">
+<link rel="stylesheet" href="/bundle.css?v=1597247577" media="all">
+<style>.cdata pre{color:#edf2f7;background-color:#2d3748}.cdata :not(pre)>code{color:#805ad5;background-color:#f7fafc}.chroma .err{color:#fed7d7;background-color:#9b2c2c}.chroma .hl{background-color:#4a5568}.chroma .ln{color:#a0aec0}.chroma .k,.chroma .kc,.chroma .kd,.chroma .kn,.chroma .kp,.chroma .kr{color:#63b3ed}.chroma .kt{color:#b794f4}.chroma .na{color:#f6e05e}.chroma .nb{color:#f6ad55}.chroma .nc{color:#fc8181}.chroma .no{color:#68d391}.chroma .nd{color:#fc8181}.chroma .ne{color:#fc8181}.chroma .nf{color:#f6ad55}.chroma .nt{color:#fc8181}.chroma .l{color:#b794f4}.chroma .dl,.chroma .ld,.chroma .s,.chroma .s2,.chroma .sa,.chroma .sb,.chroma .sc,.chroma .sd{color:#68d391}.chroma .se{color:#a0aec0}.chroma .s1,.chroma .sh,.chroma .si,.chroma .sr,.chroma .ss,.chroma .sx{color:#68d391}.chroma .il,.chroma .m,.chroma .mb,.chroma .mf,.chroma .mh,.chroma .mi,.chroma .mo{color:#b794f4}.chroma .o,.chroma .ow{color:#90cdf4}.chroma .p{color:#cbd5e0}.chroma .c,.chroma .c1,.chroma .ch,.chroma .cm,.chroma .cp,.chroma .cpf,.chroma .cs{color:#a0aec0}.chroma .ge{font-style:italic}.chroma .gs{font-weight:700}</style>
+
+
+
+<title>Resumé-Driven Development Part 3: Dgraph because it sounds cool : Resumé-Driven Development</title>
+
+<meta property="og:title" content="Resumé-Driven Development Part 3: Dgraph because it sounds cool">
+<meta property="og:site_name" content="Resumé-Driven Development">
+<meta property="og:url" content="https://www.kriskelly.me/part3-go-dgraph/">
+<link rel="image_src" href="https://www.kriskelly.me/image/page-default.webp">
+<meta property="og:image" content="https://www.kriskelly.me/image/page-default.webp">
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_us">
+<meta property="og:description" content="So last time we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored.">
+<meta name="description" content="So last time we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored.">
+<meta property="og:updated_time" content="2020-08-11T05:00:00Z">
+<meta property="fb:app_id" content="">
+<meta name="author" content="Kris Kelly">
+<meta property="article:author" content="https://www.kriskelly.me">
+<meta property="article:published_time" content="2020-08-11T05:00:00Z">
+<meta property="article:modified_time" content="2020-08-11T05:00:00Z">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Resumé-Driven Development Part 3: Dgraph because it sounds cool",
+  "alternativeHeadline": "In which we integrate Dgraph into our app in order to model user relationships.",
+  "url": "https://www.kriskelly.me/part3-go-dgraph/",
+  "image": "https://www.kriskelly.me/image/page-default.webp",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://www.kriskelly.me/part3-go-dgraph/"
+  },
+  "description": "So last time we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored.",
+  "author": {
+    "@type": "Person",
+    "name": "Kris Kelly"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Resumé-Driven Development",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://www.kriskelly.me/image/brand/icon-1-1.png"
+    }
+  },
+  "datePublished": "2020-08-11T05:00:00Z",
+  "dateModified": "2020-08-11T05:00:00Z",
+  "articleBody": "\u003cp\u003eSo \u003ca href=\"/part2-go-graphql\"\u003elast time\u003c/a\u003e we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored. We need a database to store our precious data, so that we can mine it for nefarious business purposes later on.\u003c/p\u003e\n\u003cp\u003eBut this tutorial won't cover any of the various ways in which companies mine your data for $$$. If I knew how to do that, I wouldn't be here writing blog posts \u003cem\u003eZING\u003c/em\u003e. For now we are innocently building a database of user data in order to be able to model the relationships between our users, to track when users like/match each other, who lives in the same city, etc. etc. We could certainly do this the old-fashioned way, by spinning up a traditional database like MySQL or Postgres and dumping the data into tables. How boring, how practical!\u003c/p\u003e\n\u003cp\u003eWhat we are going to do instead is utilize a fancy graph database I found on the internet called \u003ca href=\"https://dgraph.io/\"\u003eDgraph\u003c/a\u003e. If you've got a technical background, you're probably familiar with the concept of a graph database. But as I mentioned in an earlier part of this tutorial, I am going to pretend that you are not.\u003c/p\u003e\n\u003cp\u003eGraph databases are cool because instead of modeling data as rows in a table, you model it as a graph, i.e. with nodes and edges. For instance, instead of a user being represented by a row in a \u003ccode\u003eusers\u003c/code\u003e table, with fields called name, email, etc. we model an individual user as a node in the graph, and each of the edges corresponds to some data about the user. There's a \u0026quot;name\u0026quot; edge, an \u0026quot;email\u0026quot; edge, etc. This gets interesting when the edges start pointing to other nodes, e.g. an edge called \u003ccode\u003elikes\u003c/code\u003e that points to another user that the first user \u0026quot;liked\u0026quot; via the app.\u003c/p\u003e\n\u003cp\u003eAs to why we would do this, I think the simplest explanation is that any dataset with a high number of relationships amongst the various data points is better represented in a format where we can trace those relationships effectively. Do you have a family tree modeled as a graph, and you want to know the names of all your second cousins? There are so many of them, it's hard to keep track, right? I mean, I have that list above my bed but even then I can barely distinguish between the ones on the \u0026quot;love\u0026quot; list and the ones on the \u0026quot;hate\u0026quot; list. What a conundrum, right?\u003c/p\u003e\n\u003cp\u003eWell if you modeled that data as a graph, you could easily trace your second cousins, as well as all your \u0026quot;friends\u0026quot; from middle school, then you could add an edge for \u003ccode\u003ehated_by_me\u003c/code\u003e that pointed from your user to them, and then next time you would just need to traverse the \u003ccode\u003ehated_by_me\u003c/code\u003e edges to easily keep track of all the friends and family members that you want to remember to hate.\u003c/p\u003e\n\u003cp\u003eYou could do this with a traditional database, but you'd have to store that data in a set of tables that modeled the relationships between users, and then you'd need to write a query to self-join against the \u003ccode\u003eusers\u003c/code\u003e table umpteen times to traverse the graph of that data. Definitely doable, but fairly inefficient.\u003c/p\u003e\n\u003cp\u003eSo along comes Dgraph. Dgraph sells itself as a \u0026quot;native GraphQL database\u0026quot;, which not only sounds cool, but is also a good fit for what we are doing now, seeing as we are building a GraphQL API. As such, the queries that we make to Dgraph will ultimately end up looking very similar to the ones we make to our API.\u003c/p\u003e\n\u003cp\u003eSo anyway, let's get started with Dgraph. There are a whole bunch of ways to \u003ca href=\"https://dgraph.io/downloads#download-kubernetes\"\u003einstall the thing\u003c/a\u003e, but since we already have our local Kubernetes cluster up and running, we are going to take that approach and download the simplest Kubernetes config file they that they have available. Go ahead and download this file into our \u003ccode\u003edeployments/\u003c/code\u003e directory:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ wget https://raw.githubusercontent.com/dgraph-io/dgraph/master/contrib/config/kubernetes/dgraph-single/dgraph-single.yaml -O deployments/dgraph-single.yaml\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eNow add it to our \u003ccode\u003eTiltfile\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003ek8s_yaml('deployments/api.yaml')\nk8s_yaml('deployments/dgraph-single.yaml') # \u0026lt;-- Add this line\n\ndocker_build_with_restart('dating-app/api', '.',\n...\n\nk8s_resource('api', port_forwards=[3000])\nk8s_resource('dgraph', port_forwards=[9080]) # \u0026lt;-- And this one\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eNow you should see a new entry for \u003ccode\u003edgraph\u003c/code\u003e in the Tilt console, and if you're lucky, it should be spitting out a bunch of nonsense garbage that you don't need to understand. That's just Kubernetes setting up the dgraph cluster and getting the processes up and running. If you see errors instead, and the dgraph entry is all red and error-y, then you've got a problem. Please pick up the phone and dial emergency services and tell them \u0026quot;the database is broken\u0026quot;. Say only those words, and make sure to repeat slowly if they ask for clarification. Just kidding, don't call 911 without a real emergency! And there's your PSA for the day.\u003c/p\u003e\n\u003cp\u003eNow that we've got Dgraph up and running, the next thing we need to do is set up our Dgraph database schema.\u003c/p\u003e\n\u003cp\u003eFirst we need to grab a couple of dependencies:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ go get github.com/dgraph-io/dgo/v2\n$ go get google.golang.org/grpc\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e\u003ccode\u003edgo\u003c/code\u003e is the Dgraph Go API client, and \u003ccode\u003egrpc\u003c/code\u003e is a fancy tool originally created by Google that we use to communicate across service boundaries. \u003ca href=\"https://grpc.io/docs/what-is-grpc/introduction/\"\u003eHere's a nice introduction\u003c/a\u003e, if you're interested. If you're familiar with REST already, then here's a confusing explanation: RPC means \u0026quot;remote procedure call\u0026quot;, and at one point REST was the new hotness that more or less replaced RPC, but now RPC has replaced REST in the sense that gRPC is gaining traction, so now the old thing is new again. Confused? Good! Let's continue.\u003c/p\u003e\n\u003cp\u003eNext, let's make a file called \u003ccode\u003einternal/dgraph/client.go\u003c/code\u003e and put the following in there:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"kn\"\u003epackage\u003c/span\u003e \u003cspan class=\"nx\"\u003edgraph\u003c/span\u003e\n\n\u003cspan class=\"kn\"\u003eimport\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;flag\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;log\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;os\u0026#34;\u003c/span\u003e\n\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/dgraph-io/dgo/v2\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/dgraph-io/dgo/v2/protos/api\u0026#34;\u003c/span\u003e\n\n\t\u003cspan class=\"s\"\u003e\u0026#34;google.golang.org/grpc\u0026#34;\u003c/span\u003e\n\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003evar\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003edgraph\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003eflag\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eString\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;d\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eos\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eGetenv\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;DGRAPH_HOST\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e),\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;Dgraph Alpha address\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\u003cspan class=\"c1\"\u003e// Client is our Dgraph API wrapper\n\u003c/span\u003e\u003cspan class=\"c1\"\u003e\u003c/span\u003e\u003cspan class=\"kd\"\u003etype\u003c/span\u003e \u003cspan class=\"nx\"\u003eClient\u003c/span\u003e \u003cspan class=\"kd\"\u003estruct\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003econn\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003egrpc\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eClientConn\u003c/span\u003e\n\t\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003edgo\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eDgraph\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"c1\"\u003e// NewClient generates an instance of our client\n\u003c/span\u003e\u003cspan class=\"c1\"\u003e\u003c/span\u003e\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"nf\"\u003eNewClient\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003eClient\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003eClient\u003c/span\u003e\u003cspan class=\"p\"\u003e{}\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"c1\"\u003e// Connect to GRPC\n\u003c/span\u003e\u003cspan class=\"c1\"\u003e\u003c/span\u003e\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ec\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003eClient\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"nf\"\u003eConnect\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eflag\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eParse\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003econn\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003egrpc\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eDial\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003edgraph\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003egrpc\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eWithInsecure\u003c/span\u003e\u003cspan class=\"p\"\u003e())\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatal\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eerr\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003ec\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003econn\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003econn\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003ec\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eDgraph\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nx\"\u003edgo\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewDgraphClient\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eapi\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewDgraphClient\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ec\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003econn\u003c/span\u003e\u003cspan class=\"p\"\u003e))\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"c1\"\u003e// Close the connection\n\u003c/span\u003e\u003cspan class=\"c1\"\u003e\u003c/span\u003e\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ec\u003c/span\u003e \u003cspan class=\"o\"\u003e*\u003c/span\u003e\u003cspan class=\"nx\"\u003eClient\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e \u003cspan class=\"nf\"\u003eClose\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"kt\"\u003eerror\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"nx\"\u003ec\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003econn\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eClose\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eNow let's make a new executable called \u003ccode\u003ecmd/dgraph/setup.go\u003c/code\u003e:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\u003cspan class=\"kn\"\u003epackage\u003c/span\u003e \u003cspan class=\"nx\"\u003emain\u003c/span\u003e\n\n\u003cspan class=\"kn\"\u003eimport\u003c/span\u003e \u003cspan class=\"p\"\u003e(\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;context\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;io/ioutil\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;log\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;os\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;path/filepath\u0026#34;\u003c/span\u003e\n\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/dgraph-io/dgo/v2/protos/api\u0026#34;\u003c/span\u003e\n\t\u003cspan class=\"s\"\u003e\u0026#34;github.com/kriskelly/dating-app-example/internal/dgraph\u0026#34;\u003c/span\u003e\n\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"nf\"\u003ereadSchema\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"p\"\u003e[]\u003c/span\u003e\u003cspan class=\"kt\"\u003ebyte\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003ewd\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003eos\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eGetwd\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatalln\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eerr\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003epath\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003efilepath\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eJoin\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003ewd\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"s\"\u003e\u0026#34;./internal/dgraph/dgraph.graphqls\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eb\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003eioutil\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eReadFile\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003epath\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatalln\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eerr\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003ereturn\u003c/span\u003e \u003cspan class=\"nx\"\u003eb\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\u003cspan class=\"kd\"\u003efunc\u003c/span\u003e \u003cspan class=\"nf\"\u003emain\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003ePrintln\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;Setting up the Dgraph schema...\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\n\t\u003cspan class=\"nx\"\u003eclient\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003edgraph\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eNewClient\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eclient\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eConnect\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003edefer\u003c/span\u003e \u003cspan class=\"nx\"\u003eclient\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eClose\u003c/span\u003e\u003cspan class=\"p\"\u003e()\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eop\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003eapi\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eOperation\u003c/span\u003e\u003cspan class=\"p\"\u003e{}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eop\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eSchema\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nb\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nf\"\u003ereadSchema\u003c/span\u003e\u003cspan class=\"p\"\u003e())\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003eclient\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eAlter\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003econtext\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eBackground\u003c/span\u003e\u003cspan class=\"p\"\u003e(),\u003c/span\u003e \u003cspan class=\"nx\"\u003eop\u003c/span\u003e\u003cspan class=\"p\"\u003e);\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatal\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eerr\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\n\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003ePrintln\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s\"\u003e\u0026#34;Ran Alter Schema on DGraph\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eAnd finally, let's make a schema file called \u003ccode\u003einternal/dgraph/dgraph.graphqls\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003ename: string @index(exact, fulltext) @count .\nemail: string @index(exact) .\npassword: password .\nliked: [uid] @count @reverse .\nrejected: [uid] @count @reverse .\nmatched: [uid] @count @reverse .\nlives_in: uid @reverse .\n\ntype User {\n    name\n    email\n    password\n    matched\n    liked\n    rejected\n    lives_in\n}\n\ntype City {\n    name\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThe code in \u003ccode\u003eclient.go\u003c/code\u003e just wraps our \u003ccode\u003edgo\u003c/code\u003e API client with some additional code to make and close a connection to the Dgraph server. Our \u003ccode\u003edgraph.graphqls\u003c/code\u003e file defines the database schema that we'll be using, and we'll go over that in a bit. The \u003ccode\u003esetup.go\u003c/code\u003e glues these things together; it reads the schema file, opens a database connection, and runs an \u003ccode\u003eAlter\u003c/code\u003e operation to modify the schema to match our schema file, like so:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-golang\" data-lang=\"golang\"\u003e\t\u003cspan class=\"nx\"\u003eop\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"o\"\u003e\u0026amp;\u003c/span\u003e\u003cspan class=\"nx\"\u003eapi\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eOperation\u003c/span\u003e\u003cspan class=\"p\"\u003e{}\u003c/span\u003e\n\t\u003cspan class=\"nx\"\u003eop\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nx\"\u003eSchema\u003c/span\u003e \u003cspan class=\"p\"\u003e=\u003c/span\u003e \u003cspan class=\"nb\"\u003estring\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nf\"\u003ereadSchema\u003c/span\u003e\u003cspan class=\"p\"\u003e())\u003c/span\u003e\n\t\u003cspan class=\"k\"\u003eif\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e:=\u003c/span\u003e \u003cspan class=\"nx\"\u003eclient\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eAlter\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003econtext\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eBackground\u003c/span\u003e\u003cspan class=\"p\"\u003e(),\u003c/span\u003e \u003cspan class=\"nx\"\u003eop\u003c/span\u003e\u003cspan class=\"p\"\u003e);\u003c/span\u003e \u003cspan class=\"nx\"\u003eerr\u003c/span\u003e \u003cspan class=\"o\"\u003e!=\u003c/span\u003e \u003cspan class=\"kc\"\u003enil\u003c/span\u003e \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n\t\t\u003cspan class=\"nx\"\u003elog\u003c/span\u003e\u003cspan class=\"p\"\u003e.\u003c/span\u003e\u003cspan class=\"nf\"\u003eFatal\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"nx\"\u003eerr\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\t\u003cspan class=\"p\"\u003e}\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eNow we can dig into the schema file itself. The first thing this file does is define the data types for the different kinds of edges that we can have for our users:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003ename: string @index(exact, fulltext) @count .\nemail: string @index(exact) .\npassword: password .\nliked: [uid] @count @reverse .\nrejected: [uid] @count @reverse .\nmatched: [uid] @count @reverse .\nlives_in: uid @reverse .\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eSome of this might seem self-explanatory. For instance, \u003ccode\u003ename: string\u003c/code\u003e tells us that the name field should be a string. For the other fields, \u003ccode\u003e[uid]\u003c/code\u003e indicates that the edge corresponds to an array of nodes, in this case other users. So in this way we can keep track of who liked/rejected who, where people live, etc.\u003c/p\u003e\n\u003cp\u003eThe \u003ccode\u003e@index\u003c/code\u003e, \u003ccode\u003e@count\u003c/code\u003e, etc. parts correspond to database indexes for those fields. \u003ccode\u003e@count\u003c/code\u003e indexes the count, so we could for instance retrieve the number of users with a specific name. \u003ccode\u003efulltext\u003c/code\u003e operates similar to a full-text index in Postgres or MySQL, and \u003ccode\u003e@reverse\u003c/code\u003e sets up an index that allows us to look up nodes in reverse. That means that instead of having to have a separate edge for \u003ccode\u003eliked_by\u003c/code\u003e, we could just look up a list of all the users who liked us by checking to see where there's a \u003ccode\u003eliked\u003c/code\u003e edge that points to us.\u003c/p\u003e\n\u003cp\u003eThe rest of the schema file defines the various data types for our nodes. In this case we just have \u003ccode\u003eUser\u003c/code\u003e and \u003ccode\u003eCity\u003c/code\u003e:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003etype User {\n    name\n    email\n    password\n    matched\n    liked\n    rejected\n    lives_in\n}\n\ntype City {\n    name\n}\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eTypes are basically defined similarly to GraphQL, which fits in with Dgraph's branding as a GraphQL database. I'm not entirely sure what happens if you try to create a user with an edge that is not defined on the type, but I'll do that at some point and report back.\u003c/p\u003e\n\u003cp\u003eNow that we've got our code set up properly to create the database schema, let's run it on the command line. Note that we are not container-izing this script just yet, as it's more of a one-off. For now we can just run it in the terminal:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-bash\" data-lang=\"bash\"\u003e$ \u003cspan class=\"nv\"\u003eDGRAPH_HOST\u003c/span\u003e\u003cspan class=\"o\"\u003e=\u003c/span\u003elocalhost:9080 go run cmd/dgraph/setup.go\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eCouple of things to note about this: we specify the Dgraph host via an environment variable (which we referenced in \u003ccode\u003eclient.go\u003c/code\u003e earlier), and that environment variable points to a port we exposed on localhost earlier in our \u003ccode\u003eTiltfile\u003c/code\u003e. Doing this sort of thing allows us to access any service that runs on our Kubernetes cluster as though we were running it outside the confines of the cluster, essentially so that we can poke at the database at our leisure to do things like setting up the schema, verifying the data, etc. We'll look into examining the data later on.\u003c/p\u003e\n\u003cp\u003eFor now, if you run the script above, you should see a message indicating that the schema was altered. Congratulations to both of us! Congratulations to you for managing to follow my instructions, and also congratulations to me for not f'ing up the instructions. Wins all around.\u003c/p\u003e\n\u003cp\u003eAnyway, because everyone's attention span these days is about as long as my middle finger, I'm going to try to keep these posts short and sweet. We've successfully set up our Dgraph database and schema, so the next post is going to be all about querying Dgraph and the various ways of making it do our bidding. See you next week!\u003c/p\u003e"
+}
+</script>
+
+<link rel="preload" as="script" href="/bundle.js?v=1597247577">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://stats.g.doubleclick.net">
+<link rel="preconnect" href="https://www.googleadservices.com">
+<link rel="preload" as="script" href="https://www.googletagmanager.com/gtag/js?id=UA-98394994-1">
+<script src="https://www.googletagmanager.com/gtag/js?id=UA-98394994-1"></script>
+<script>
+  window.dataLayer=window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js',new Date());
+  gtag('config','UA-98394994-1');
+</script>
+
+</head>
+<body>
+
+  <header id="nav" class="header">
+    <div class="ax-l-i max-w-6xl">
+      <div class="ax-logo">
+        <a class="block title" href="/" title="Resumé-Driven Development">Resumé-Driven Development</a>
+      </div>
+      <div class="ax-user">
+        <a class="p-2 w-8 h-8 block text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" target="_blank" rel="noopener nofollow" href="https://www.google.com/search?q=site:example.com" title="Search">
+          <svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M2.67 12.804c0-5.6 4.544-10.134 10.133-10.134s10.134 4.544 10.134 10.134-4.544 10.133-10.134 10.133S2.67 18.393 2.67 12.804zm28.943 16.923l-8.868-8.868c4.287-5.3 3.68-13.012-1.378-17.57S8.564-1.066 3.75 3.75s-5.017 12.558-.46 17.618 12.28 5.665 17.57 1.378l8.868 8.868a1.33 1.33 0 0 0 2.231-.597c.123-.46-.008-.952-.345-1.29h0z"/></svg>
+
+        </a>
+        <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/posts/">
+          Posts
+        </a>
+        <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/about">
+          About
+        </a>
+      </div>
+    </div>
+  
+    
+  </header>
+  
+  <main>
+<div class="default-single">
+  <div class="ax-title ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <h1 class="post-title font-content-title font-normal leading-tight tracking-default text-40">Resumé-Driven Development Part 3: Dgraph because it sounds cool</h1>
+      <p class="post-subtitle font-content-sans font-light text-xl text-raven-500 mt-3">In which we integrate Dgraph into our app in order to model user relationships.</p>
+
+      <div class="ax-meta flex items-center mt-5">
+        <div class="flex-grow min-w-0">
+          <div class="flex items-center">
+  <div class="flex-shrink-0">
+    <img
+    class="w-12 h-12 sm:w-14 sm:h-14 object-cover p-3px rounded-full border border-blue-300"
+    src="/images/kris.jpg"
+    alt="Kris Kelly">
+  </div>
+  <div class="flex-shrink-0 ml-2 leading-tight font-content-sans">
+    <a class="block text-sm text-raven-800 hover:text-raven-900 hover:underline focus:underline" target="_blank" rel="noopener nofollow" title="Kris Kelly" href="https://www.kriskelly.me">Kris Kelly</a>
+    <time class="text-sm text-raven-500" datetime="2020-08-11T05:00:00Z">Aug 10, 2020 10:00PM</time>
+  </div>
+</div>
+
+        </div>
+        <div>
+          <div class="flex items-center">
+  <a class="flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Twitter" href="https://twitter.com/intent/tweet?text=Resum%c3%a9-Driven%20Development%20Part%203%3a%20Dgraph%20because%20it%20sounds%20cool%20by%20%40%25%21s%28%3cnil%3e%29%20https%3a%2f%2fwww.kriskelly.me%2fpart3-go-dgraph%2f"><svg class="w-6 h-6 fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg>
+</a>
+  <a class="ml-3 flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Facebook" href="https://www.facebook.com/dialog/share?app_id=&display=page&href=https%3a%2f%2fwww.kriskelly.me%2fpart3-go-dgraph%2f"><svg class="w-6 h-6 fill-current" viewBox="-7 -3.5 39 39" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M30.234 0H1.765C.8.001 0 .79 0 1.766v28.47C.001 31.2.79 32 1.766 32h15.328V19.625h-4.156V14.78h4.156v-3.564c0-4.134 2.523-6.384 6.21-6.384 1.766 0 3.284.13 3.726.2v4.32h-2.543c-2.006 0-2.394.953-2.394 2.352v3.085h4.797l-.625 4.844h-4.172V32h8.14C31.21 32 32 31.2 32 30.234V1.765C32 .8 31.21 0 30.234 0z"/></svg>
+</a>
+</div>
+
+        </div>
+      </div>
+    </div>
+  </div><div class="ax-content ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <article class="cdata">
+<p>So <a href="/part2-go-graphql">last time</a> we started building our app as a GraphQL API with some basic user endpoints. But it had no database, which was fine for demonstration purposes, though none of the user data that we put into the system was actually being stored. We need a database to store our precious data, so that we can mine it for nefarious business purposes later on.</p>
+<p>But this tutorial won't cover any of the various ways in which companies mine your data for $$$. If I knew how to do that, I wouldn't be here writing blog posts <em>ZING</em>. For now we are innocently building a database of user data in order to be able to model the relationships between our users, to track when users like/match each other, who lives in the same city, etc. etc. We could certainly do this the old-fashioned way, by spinning up a traditional database like MySQL or Postgres and dumping the data into tables. How boring, how practical!</p>
+<p>What we are going to do instead is utilize a fancy graph database I found on the internet called <a href="https://dgraph.io/">Dgraph</a>. If you've got a technical background, you're probably familiar with the concept of a graph database. But as I mentioned in an earlier part of this tutorial, I am going to pretend that you are not.</p>
+<p>Graph databases are cool because instead of modeling data as rows in a table, you model it as a graph, i.e. with nodes and edges. For instance, instead of a user being represented by a row in a <code>users</code> table, with fields called name, email, etc. we model an individual user as a node in the graph, and each of the edges corresponds to some data about the user. There's a &quot;name&quot; edge, an &quot;email&quot; edge, etc. This gets interesting when the edges start pointing to other nodes, e.g. an edge called <code>likes</code> that points to another user that the first user &quot;liked&quot; via the app.</p>
+<p>As to why we would do this, I think the simplest explanation is that any dataset with a high number of relationships amongst the various data points is better represented in a format where we can trace those relationships effectively. Do you have a family tree modeled as a graph, and you want to know the names of all your second cousins? There are so many of them, it's hard to keep track, right? I mean, I have that list above my bed but even then I can barely distinguish between the ones on the &quot;love&quot; list and the ones on the &quot;hate&quot; list. What a conundrum, right?</p>
+<p>Well if you modeled that data as a graph, you could easily trace your second cousins, as well as all your &quot;friends&quot; from middle school, then you could add an edge for <code>hated_by_me</code> that pointed from your user to them, and then next time you would just need to traverse the <code>hated_by_me</code> edges to easily keep track of all the friends and family members that you want to remember to hate.</p>
+<p>You could do this with a traditional database, but you'd have to store that data in a set of tables that modeled the relationships between users, and then you'd need to write a query to self-join against the <code>users</code> table umpteen times to traverse the graph of that data. Definitely doable, but fairly inefficient.</p>
+<p>So along comes Dgraph. Dgraph sells itself as a &quot;native GraphQL database&quot;, which not only sounds cool, but is also a good fit for what we are doing now, seeing as we are building a GraphQL API. As such, the queries that we make to Dgraph will ultimately end up looking very similar to the ones we make to our API.</p>
+<p>So anyway, let's get started with Dgraph. There are a whole bunch of ways to <a href="https://dgraph.io/downloads#download-kubernetes">install the thing</a>, but since we already have our local Kubernetes cluster up and running, we are going to take that approach and download the simplest Kubernetes config file they that they have available. Go ahead and download this file into our <code>deployments/</code> directory:</p>
+<pre><code>$ wget https://raw.githubusercontent.com/dgraph-io/dgraph/master/contrib/config/kubernetes/dgraph-single/dgraph-single.yaml -O deployments/dgraph-single.yaml
+</code></pre><p>Now add it to our <code>Tiltfile</code>:</p>
+<pre><code>k8s_yaml('deployments/api.yaml')
+k8s_yaml('deployments/dgraph-single.yaml') # &lt;-- Add this line
+
+docker_build_with_restart('dating-app/api', '.',
+...
+
+k8s_resource('api', port_forwards=[3000])
+k8s_resource('dgraph', port_forwards=[9080]) # &lt;-- And this one
+</code></pre><p>Now you should see a new entry for <code>dgraph</code> in the Tilt console, and if you're lucky, it should be spitting out a bunch of nonsense garbage that you don't need to understand. That's just Kubernetes setting up the dgraph cluster and getting the processes up and running. If you see errors instead, and the dgraph entry is all red and error-y, then you've got a problem. Please pick up the phone and dial emergency services and tell them &quot;the database is broken&quot;. Say only those words, and make sure to repeat slowly if they ask for clarification. Just kidding, don't call 911 without a real emergency! And there's your PSA for the day.</p>
+<p>Now that we've got Dgraph up and running, the next thing we need to do is set up our Dgraph database schema.</p>
+<p>First we need to grab a couple of dependencies:</p>
+<pre><code>$ go get github.com/dgraph-io/dgo/v2
+$ go get google.golang.org/grpc
+</code></pre><p><code>dgo</code> is the Dgraph Go API client, and <code>grpc</code> is a fancy tool originally created by Google that we use to communicate across service boundaries. <a href="https://grpc.io/docs/what-is-grpc/introduction/">Here's a nice introduction</a>, if you're interested. If you're familiar with REST already, then here's a confusing explanation: RPC means &quot;remote procedure call&quot;, and at one point REST was the new hotness that more or less replaced RPC, but now RPC has replaced REST in the sense that gRPC is gaining traction, so now the old thing is new again. Confused? Good! Let's continue.</p>
+<p>Next, let's make a file called <code>internal/dgraph/client.go</code> and put the following in there:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">dgraph</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;flag&#34;</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2&#34;</span>
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2/protos/api&#34;</span>
+
+	<span class="s">&#34;google.golang.org/grpc&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">var</span> <span class="p">(</span>
+	<span class="nx">dgraph</span> <span class="p">=</span> <span class="nx">flag</span><span class="p">.</span><span class="nf">String</span><span class="p">(</span><span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getenv</span><span class="p">(</span><span class="s">&#34;DGRAPH_HOST&#34;</span><span class="p">),</span> <span class="s">&#34;Dgraph Alpha address&#34;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="c1">// Client is our Dgraph API wrapper
+</span><span class="c1"></span><span class="kd">type</span> <span class="nx">Client</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">conn</span> <span class="o">*</span><span class="nx">grpc</span><span class="p">.</span><span class="nx">ClientConn</span>
+	<span class="o">*</span><span class="nx">dgo</span><span class="p">.</span><span class="nx">Dgraph</span>
+<span class="p">}</span>
+
+<span class="c1">// NewClient generates an instance of our client
+</span><span class="c1"></span><span class="kd">func</span> <span class="nf">NewClient</span><span class="p">()</span> <span class="o">*</span><span class="nx">Client</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="o">&amp;</span><span class="nx">Client</span><span class="p">{}</span>
+<span class="p">}</span>
+
+<span class="c1">// Connect to GRPC
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">Client</span><span class="p">)</span> <span class="nf">Connect</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">flag</span><span class="p">.</span><span class="nf">Parse</span><span class="p">()</span>
+	<span class="nx">conn</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">grpc</span><span class="p">.</span><span class="nf">Dial</span><span class="p">(</span><span class="o">*</span><span class="nx">dgraph</span><span class="p">,</span> <span class="nx">grpc</span><span class="p">.</span><span class="nf">WithInsecure</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">conn</span> <span class="p">=</span> <span class="nx">conn</span>
+	<span class="nx">c</span><span class="p">.</span><span class="nx">Dgraph</span> <span class="p">=</span> <span class="nx">dgo</span><span class="p">.</span><span class="nf">NewDgraphClient</span><span class="p">(</span><span class="nx">api</span><span class="p">.</span><span class="nf">NewDgraphClient</span><span class="p">(</span><span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="c1">// Close the connection
+</span><span class="c1"></span><span class="kd">func</span> <span class="p">(</span><span class="nx">c</span> <span class="o">*</span><span class="nx">Client</span><span class="p">)</span> <span class="nf">Close</span><span class="p">()</span> <span class="kt">error</span> <span class="p">{</span>
+	<span class="k">return</span> <span class="nx">c</span><span class="p">.</span><span class="nx">conn</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+<span class="p">}</span>
+</code></pre></div><p>Now let's make a new executable called <code>cmd/dgraph/setup.go</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang"><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&#34;context&#34;</span>
+	<span class="s">&#34;io/ioutil&#34;</span>
+	<span class="s">&#34;log&#34;</span>
+	<span class="s">&#34;os&#34;</span>
+	<span class="s">&#34;path/filepath&#34;</span>
+
+	<span class="s">&#34;github.com/dgraph-io/dgo/v2/protos/api&#34;</span>
+	<span class="s">&#34;github.com/kriskelly/dating-app-example/internal/dgraph&#34;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nf">readSchema</span><span class="p">()</span> <span class="p">[]</span><span class="kt">byte</span> <span class="p">{</span>
+	<span class="nx">wd</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">os</span><span class="p">.</span><span class="nf">Getwd</span><span class="p">()</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalln</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="nx">path</span> <span class="o">:=</span> <span class="nx">filepath</span><span class="p">.</span><span class="nf">Join</span><span class="p">(</span><span class="nx">wd</span><span class="p">,</span> <span class="s">&#34;./internal/dgraph/dgraph.graphqls&#34;</span><span class="p">)</span>
+	<span class="nx">b</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">ioutil</span><span class="p">.</span><span class="nf">ReadFile</span><span class="p">(</span><span class="nx">path</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatalln</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">b</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Setting up the Dgraph schema...&#34;</span><span class="p">)</span>
+
+	<span class="nx">client</span> <span class="o">:=</span> <span class="nx">dgraph</span><span class="p">.</span><span class="nf">NewClient</span><span class="p">()</span>
+	<span class="nx">client</span><span class="p">.</span><span class="nf">Connect</span><span class="p">()</span>
+	<span class="k">defer</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+	<span class="nx">op</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">api</span><span class="p">.</span><span class="nx">Operation</span><span class="p">{}</span>
+	<span class="nx">op</span><span class="p">.</span><span class="nx">Schema</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nf">readSchema</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Alter</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">op</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Ran Alter Schema on DGraph&#34;</span><span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div><p>And finally, let's make a schema file called <code>internal/dgraph/dgraph.graphqls</code>:</p>
+<pre><code>name: string @index(exact, fulltext) @count .
+email: string @index(exact) .
+password: password .
+liked: [uid] @count @reverse .
+rejected: [uid] @count @reverse .
+matched: [uid] @count @reverse .
+lives_in: uid @reverse .
+
+type User {
+    name
+    email
+    password
+    matched
+    liked
+    rejected
+    lives_in
+}
+
+type City {
+    name
+}
+</code></pre><p>The code in <code>client.go</code> just wraps our <code>dgo</code> API client with some additional code to make and close a connection to the Dgraph server. Our <code>dgraph.graphqls</code> file defines the database schema that we'll be using, and we'll go over that in a bit. The <code>setup.go</code> glues these things together; it reads the schema file, opens a database connection, and runs an <code>Alter</code> operation to modify the schema to match our schema file, like so:</p>
+<div class="highlight"><pre class="chroma"><code class="language-golang" data-lang="golang">	<span class="nx">op</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">api</span><span class="p">.</span><span class="nx">Operation</span><span class="p">{}</span>
+	<span class="nx">op</span><span class="p">.</span><span class="nx">Schema</span> <span class="p">=</span> <span class="nb">string</span><span class="p">(</span><span class="nf">readSchema</span><span class="p">())</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">client</span><span class="p">.</span><span class="nf">Alter</span><span class="p">(</span><span class="nx">context</span><span class="p">.</span><span class="nf">Background</span><span class="p">(),</span> <span class="nx">op</span><span class="p">);</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">err</span><span class="p">)</span>
+	<span class="p">}</span>
+</code></pre></div><p>Now we can dig into the schema file itself. The first thing this file does is define the data types for the different kinds of edges that we can have for our users:</p>
+<pre><code>name: string @index(exact, fulltext) @count .
+email: string @index(exact) .
+password: password .
+liked: [uid] @count @reverse .
+rejected: [uid] @count @reverse .
+matched: [uid] @count @reverse .
+lives_in: uid @reverse .
+</code></pre><p>Some of this might seem self-explanatory. For instance, <code>name: string</code> tells us that the name field should be a string. For the other fields, <code>[uid]</code> indicates that the edge corresponds to an array of nodes, in this case other users. So in this way we can keep track of who liked/rejected who, where people live, etc.</p>
+<p>The <code>@index</code>, <code>@count</code>, etc. parts correspond to database indexes for those fields. <code>@count</code> indexes the count, so we could for instance retrieve the number of users with a specific name. <code>fulltext</code> operates similar to a full-text index in Postgres or MySQL, and <code>@reverse</code> sets up an index that allows us to look up nodes in reverse. That means that instead of having to have a separate edge for <code>liked_by</code>, we could just look up a list of all the users who liked us by checking to see where there's a <code>liked</code> edge that points to us.</p>
+<p>The rest of the schema file defines the various data types for our nodes. In this case we just have <code>User</code> and <code>City</code>:</p>
+<pre><code>type User {
+    name
+    email
+    password
+    matched
+    liked
+    rejected
+    lives_in
+}
+
+type City {
+    name
+}
+</code></pre><p>Types are basically defined similarly to GraphQL, which fits in with Dgraph's branding as a GraphQL database. I'm not entirely sure what happens if you try to create a user with an edge that is not defined on the type, but I'll do that at some point and report back.</p>
+<p>Now that we've got our code set up properly to create the database schema, let's run it on the command line. Note that we are not container-izing this script just yet, as it's more of a one-off. For now we can just run it in the terminal:</p>
+<div class="highlight"><pre class="chroma"><code class="language-bash" data-lang="bash">$ <span class="nv">DGRAPH_HOST</span><span class="o">=</span>localhost:9080 go run cmd/dgraph/setup.go
+</code></pre></div><p>Couple of things to note about this: we specify the Dgraph host via an environment variable (which we referenced in <code>client.go</code> earlier), and that environment variable points to a port we exposed on localhost earlier in our <code>Tiltfile</code>. Doing this sort of thing allows us to access any service that runs on our Kubernetes cluster as though we were running it outside the confines of the cluster, essentially so that we can poke at the database at our leisure to do things like setting up the schema, verifying the data, etc. We'll look into examining the data later on.</p>
+<p>For now, if you run the script above, you should see a message indicating that the schema was altered. Congratulations to both of us! Congratulations to you for managing to follow my instructions, and also congratulations to me for not f'ing up the instructions. Wins all around.</p>
+<p>Anyway, because everyone's attention span these days is about as long as my middle finger, I'm going to try to keep these posts short and sweet. We've successfully set up our Dgraph database and schema, so the next post is going to be all about querying Dgraph and the various ways of making it do our bidding. See you next week!</p>
+
+      </article>
+      
+
+      
+<div id="disqus_thread" class="mt-12"></div>
+<script>
+var disqus_config = function () {
+  this.page.url = "https://www.kriskelly.me/part3-go-dgraph/";
+  this.page.identifier = "e1c6c9cc05bb0342737f51cf80ccaa2e";
+  this.page.title = "Resumé-Driven Development Part 3: Dgraph because it sounds cool";
+};
+
+(function() {
+  window.setTimeout(function() {
+    var d = document;
+    if (['localhost', '127.0.0.1'].indexOf(window.location.hostname) != -1) {
+      d.getElementById('disqus_thread').innerHTML = '<div class="text-center">Disqus disabled during local preview.</div>';
+      return;
+    }
+
+    var s = d.createElement('script');
+    s.src = 'https://kriskelly-me.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    s.setAttribute("defer", "");
+    d.body.appendChild(s);
+  }, 2500);
+})();
+</script>
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <footer class="footer">
+  <div class="ax-l-i max-w-6xl">
+    <nav class="flex items-center justify-center">
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/posts/">Posts</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/about/">About</a>
+    </nav>
+    <div class="footer-social flex items-center justify-center mt-4">
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Github" href="https://github.com/kriskelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M15.998 0C7.164 0 0 7.35 0 16.417 0 23.67 4.584 29.82 10.944 31.994c.8.15 1.092-.356 1.092-.79l-.022-2.792c-4.45.99-5.4-2.202-5.4-2.202-.726-1.896-1.776-2.4-1.776-2.4-1.454-1.018.108-.998.108-.998 1.606.117 2.45 1.693 2.45 1.693 1.428 2.507 3.746 1.784 4.658 1.363.144-1.06.558-1.784 1.016-2.195-3.552-.415-7.288-1.823-7.288-8.113 0-1.792.624-3.258 1.648-4.406-.166-.415-.714-2.085.156-4.344 0 0 1.344-.44 4.4 1.683 1.276-.364 2.644-.546 4.006-.552a14.98 14.98 0 0 1 4.006.554C23.062 6.37 24.404 6.8 24.404 6.8c.872 2.26.324 3.93.16 4.344 1.026 1.148 1.644 2.614 1.644 4.406 0 6.306-3.74 7.694-7.304 8.1.574.507 1.086 1.51 1.086 3.04l-.02 4.503c0 .44.288.95 1.1.788C27.42 29.817 32 23.667 32 16.417 32 7.35 24.836 0 15.998 0z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="LinkedIn" href="https://www.linkedin.com/in/kristopherbkelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M29.692 0H2.308A2.31 2.31 0 0 0 0 2.308v27.384A2.31 2.31 0 0 0 2.308 32h27.384A2.31 2.31 0 0 0 32 29.692V2.308A2.31 2.31 0 0 0 29.692 0zM11.35 24.188H7.454V12.464h3.897v11.723zM9.402 10.863h-.025c-1.308 0-2.153-.9-2.153-2.025 0-1.15.872-2.026 2.205-2.026s2.153.875 2.18 2.026c0 1.125-.846 2.025-2.205 2.025zm16 13.324h-3.896v-6.272c0-1.576-.564-2.65-1.974-2.65-1.076 0-1.717.725-2 1.425-.103.25-.128.6-.128.95v6.547h-3.896V12.464h3.896v1.66c.518-.8 1.444-1.935 3.512-1.935 2.564 0 4.486 1.676 4.486 5.276v6.722z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Instagram" href="https://instagram.com/kriskellykriskellykriskelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M4 32h24c2.258 0 4-1.742 4-4V4c0-2.26-1.742-4-4-4H4C1.74 0 0 1.74 0 4v24c0 2.258 1.74 4 4 4zM22 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zm-5.977 4.714c3.55 0 6.425 2.787 6.425 6.226s-2.876 6.226-6.425 6.226S9.6 19.377 9.6 15.94s2.878-6.226 6.423-6.226zM4 13l2.493.542c-.274.89-.413 1.815-.413 2.745 0 5.318 4.454 9.634 9.943 9.634s9.944-4.315 9.944-9.634c0-.955-.145-1.875-.412-2.745L28 13v14c0 .7-.3 1-1 1H5c-.7 0-1-.3-1-1V13z"/></svg></a>
+    </div>
+
+    <div class="footer-copyright text-sm text-center text-gray-500 mt-4">
+      &#169; 2020-2020 Kris Kelly
+    </div>
+    <div class="text-sm sm:text-xs text-center text-gray-500 mt-2">
+      Powered by <a href="https://www.axiomtheme.com/?utm_source=theme-footer&utm_medium=website&utm_campaign=referral">Axiom</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/bundle.js?v=1597247577"></script>
+
+
+</body>
+</html>
