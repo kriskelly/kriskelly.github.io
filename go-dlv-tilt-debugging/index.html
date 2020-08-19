@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name="hugo-theme" content="Axiom 0.7.0">
+
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/image/brand/favicon.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/image/brand/icon-1-1.png">
+  <link rel="canonical" href="https://www.kriskelly.me/go-dlv-tilt-debugging/">
+<link rel="preload" as="style" href="/bundle.css?v=1597858436" media="all">
+<link rel="stylesheet" href="/bundle.css?v=1597858436" media="all">
+<style>.cdata pre{color:#edf2f7;background-color:#2d3748}.cdata :not(pre)>code{color:#805ad5;background-color:#f7fafc}.chroma .err{color:#fed7d7;background-color:#9b2c2c}.chroma .hl{background-color:#4a5568}.chroma .ln{color:#a0aec0}.chroma .k,.chroma .kc,.chroma .kd,.chroma .kn,.chroma .kp,.chroma .kr{color:#63b3ed}.chroma .kt{color:#b794f4}.chroma .na{color:#f6e05e}.chroma .nb{color:#f6ad55}.chroma .nc{color:#fc8181}.chroma .no{color:#68d391}.chroma .nd{color:#fc8181}.chroma .ne{color:#fc8181}.chroma .nf{color:#f6ad55}.chroma .nt{color:#fc8181}.chroma .l{color:#b794f4}.chroma .dl,.chroma .ld,.chroma .s,.chroma .s2,.chroma .sa,.chroma .sb,.chroma .sc,.chroma .sd{color:#68d391}.chroma .se{color:#a0aec0}.chroma .s1,.chroma .sh,.chroma .si,.chroma .sr,.chroma .ss,.chroma .sx{color:#68d391}.chroma .il,.chroma .m,.chroma .mb,.chroma .mf,.chroma .mh,.chroma .mi,.chroma .mo{color:#b794f4}.chroma .o,.chroma .ow{color:#90cdf4}.chroma .p{color:#cbd5e0}.chroma .c,.chroma .c1,.chroma .ch,.chroma .cm,.chroma .cp,.chroma .cpf,.chroma .cs{color:#a0aec0}.chroma .ge{font-style:italic}.chroma .gs{font-weight:700}</style>
+
+
+
+<title>Debugging Go with Delve and Tilt : Resumé-Driven Development</title>
+
+<meta property="og:title" content="Debugging Go with Delve and Tilt">
+<meta property="og:site_name" content="Resumé-Driven Development">
+<meta property="og:url" content="https://www.kriskelly.me/go-dlv-tilt-debugging/">
+<link rel="image_src" href="https://www.kriskelly.me/image/page-default.webp">
+<meta property="og:image" content="https://www.kriskelly.me/image/page-default.webp">
+<meta property="og:image:width" content="2048">
+<meta property="og:image:height" content="1024">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="en_us">
+<meta property="og:description" content="If you&#39;ve been following my tutorial series as a handful of you have been, you&#39;ll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset.">
+<meta name="description" content="If you&#39;ve been following my tutorial series as a handful of you have been, you&#39;ll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset.">
+<meta property="og:updated_time" content="2020-08-19T16:00:32Z">
+<meta property="fb:app_id" content="">
+<meta name="author" content="Kris Kelly">
+<meta property="article:author" content="https://www.kriskelly.me">
+<meta property="article:published_time" content="2020-08-19T16:00:32Z">
+<meta property="article:modified_time" content="2020-08-19T16:00:32Z">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "Debugging Go with Delve and Tilt",
+  "alternativeHeadline": "If you've been following my tutorial series as a handful of you have been, you'll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset.",
+  "url": "https://www.kriskelly.me/go-dlv-tilt-debugging/",
+  "image": "https://www.kriskelly.me/image/page-default.webp",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://www.kriskelly.me/go-dlv-tilt-debugging/"
+  },
+  "description": "If you've been following my tutorial series as a handful of you have been, you'll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset.",
+  "author": {
+    "@type": "Person",
+    "name": "Kris Kelly"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Resumé-Driven Development",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://www.kriskelly.me/image/brand/icon-1-1.png"
+    }
+  },
+  "datePublished": "2020-08-19T16:00:32Z",
+  "dateModified": "2020-08-19T16:00:32Z",
+  "articleBody": "\u003cp\u003eIf you've been following my tutorial series as a handful of you have been, you'll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset. But it's ok to feel feelings. You just have to eventually put those feelings aside, because we have work to do!\u003c/p\u003e\n\u003cp\u003eI'm going to make the (potentially unfounded) assumption that you've used a debugger before. That makes my job easier, because I don't have to explain breakpoints, or stepping through code, or the sense of godlike power that courses through your veins when you finally find the bug after many hours of banging your head against the desk. But if you've never experienced that feeling, here's a \u003ca href=\"https://golangbot.com/debugging-go-delve/\"\u003egood tutorial on how to actually use the Go debugger\u003c/a\u003e.\u003c/p\u003e\n\u003cp\u003eThe tutorial above is super helpful for actually learning how to debug in Go, so I recommend reading it for the general gist of how to use the debugger itself. I also recommend reading it because I'm too lazy to regurgitate any of it. What I didn't find on the internet though was a concise explanation of how to debug Go via Kubernetes and Tilt, or more generally how to debug Go within a running Docker container. That's the point of this tutorial, and it's (hopefully) short and sweet.\u003c/p\u003e\n\u003cp\u003eAnyway, as you might have determined from the link above, the Go debugger is called Delve. You can download it thusly:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ go get github.com/go-delve/delve/cmd/dlv\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eIf you've been following along with my tutorial, you can debug the app in your terminal like so:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ dlv debug cmd/api.go\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eBut that is assuming we are running and debugging the app via the terminal. In this set of tutorials, we are using a tool called Tilt which helps you manage a Kubernetes cluster for local development. So instead of running \u003ccode\u003edlv debug\u003c/code\u003e in our terminal, we need to run our app via the debug server within our Docker container. Once we've set that up correctly, we should be able to connect to the debug server either via the terminal or via our favorite IDE. I'll show you how to do that via the terminal as well as with VSCode, my current favorite editor.\u003c/p\u003e\n\u003cp\u003eFirst things first: we need to modify our \u003ccode\u003eDockerfile\u003c/code\u003e to run the dlv debug server. I did this by copying the existing \u003ccode\u003eDockerfile\u003c/code\u003e to \u003ccode\u003eDockerfile.debug\u003c/code\u003e, a file that is going to match the existing one except for a couple of lines:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-Dockerfile\" data-lang=\"Dockerfile\"\u003e...\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"k\"\u003eCOPY\u003c/span\u003e go.mod .\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"k\"\u003eRUN\u003c/span\u003e go mod download\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"c\"\u003e# ADDED THIS LINE BELOW\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"k\"\u003eRUN\u003c/span\u003e go get github.com/go-delve/delve/cmd/dlv\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"k\"\u003eCOPY\u003c/span\u003e . .\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"c\"\u003e# MODIFIED THE go build COMMAND HERE\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e\u003cspan class=\"k\"\u003eRUN\u003c/span\u003e go build -gcflags \u003cspan class=\"s2\"\u003e\u0026#34;-N -l\u0026#34;\u003c/span\u003e -o /app/build/api /app/cmd\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003cspan class=\"err\"\u003e\u003c/span\u003e...\u003cspan class=\"err\"\u003e\n\u003c/span\u003e\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eThe first line installs Delve in our docker container, and the second line disables compiler optimizations, which will make it easier for us to see what we are debugging.\u003c/p\u003e\n\u003cp\u003eNow that we've got our special Dockerfile for debugging, we need to modify our \u003ccode\u003eTiltfile\u003c/code\u003e to use the new Dockerfile and run the Delve debug server. If you've been following the tutorial, you can add something like this to your \u003ccode\u003eTiltfile\u003c/code\u003e:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-ruby\" data-lang=\"ruby\"\u003e\u003cspan class=\"n\"\u003edocker_build_with_restart\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;dating-app/api\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"s1\"\u003e\u0026#39;.\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n    \u003cspan class=\"n\"\u003edockerfile\u003c/span\u003e\u003cspan class=\"o\"\u003e=\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;./Dockerfile.debug\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n    \u003cspan class=\"n\"\u003eentrypoint\u003c/span\u003e\u003cspan class=\"o\"\u003e=\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n    \u003cspan class=\"n\"\u003eignore\u003c/span\u003e\u003cspan class=\"o\"\u003e=[\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;./Dockerfile\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"s1\"\u003e\u0026#39;.git\u0026#39;\u003c/span\u003e\u003cspan class=\"o\"\u003e]\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n    \u003cspan class=\"n\"\u003elive_update\u003c/span\u003e\u003cspan class=\"o\"\u003e=[\u003c/span\u003e\n        \u003cspan class=\"n\"\u003esync\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;.\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"s1\"\u003e\u0026#39;/app\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e),\u003c/span\u003e\n        \u003cspan class=\"n\"\u003erun\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;go build -gcflags \u0026#34;-N -l\u0026#34; -o /app/build/api /app/cmd\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e),\u003c/span\u003e\n    \u003cspan class=\"o\"\u003e]\u003c/span\u003e\n\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\u003cspan class=\"o\"\u003e...\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eThis will replace the earlier call to \u003ccode\u003edocker_build_with_restart()\u003c/code\u003e that we had in there before. The difference between the earlier one and this one is:\u003c/p\u003e\n\u003cul\u003e\n\u003cli\u003eUsing the new dockerfile \u003ccode\u003edockerfile='./Dockerfile.debug'\u003c/code\u003e\u003c/li\u003e\n\u003cli\u003eRunning the Delve server instead of the app by itself: \u003ccode\u003eentrypoint='$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api'\u003c/code\u003e\u003c/li\u003e\n\u003cli\u003eChanging the \u003ccode\u003ego build\u003c/code\u003e command to run without compiler optimizations, same way we had it in the new Dockerfile\u003c/li\u003e\n\u003c/ul\u003e\n\u003cp\u003eHere we run the Delve server on port 40000, so we need to make sure that that port is exposed properly so that we can access it from outside the Kubernetes cluster. I've got my exposed ports listed in the \u003ccode\u003edeployments/api.yaml\u003c/code\u003e file, so go ahead and add the appropriate port in there:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-yaml\" data-lang=\"yaml\"\u003e\u003cspan class=\"k\"\u003espec\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e  \u003c/span\u003e\u003cspan class=\"k\"\u003econtainers\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e    \u003c/span\u003e- \u003cspan class=\"k\"\u003ename\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003eapi\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e      \u003c/span\u003e\u003cspan class=\"k\"\u003eimage\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003edating-app/api\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e      \u003c/span\u003e\u003cspan class=\"k\"\u003ecommand\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"p\"\u003e[\u003c/span\u003e\u003cspan class=\"s2\"\u003e\u0026#34;/app/build/api\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e]\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e      \u003c/span\u003e\u003cspan class=\"k\"\u003eports\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e        \u003c/span\u003e- \u003cspan class=\"k\"\u003econtainerPort\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"m\"\u003e3000\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003cspan class=\"w\"\u003e        \u003c/span\u003e- \u003cspan class=\"k\"\u003econtainerPort\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"m\"\u003e40000\u003c/span\u003e\u003cspan class=\"w\"\u003e \u003c/span\u003e\u003cspan class=\"c\"\u003e# \u0026lt;-- Add this\u003c/span\u003e\u003cspan class=\"w\"\u003e\n\u003c/span\u003e\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eYou'll also need to make sure the port is exposed on the Kubernetes resource in Tilt, so go ahead and add it there as well:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-ruby\" data-lang=\"ruby\"\u003e\u003cspan class=\"c1\"\u003e# Change port_forwards to include 40000\u003c/span\u003e\n\u003cspan class=\"n\"\u003ek8s_resource\u003c/span\u003e\u003cspan class=\"p\"\u003e(\u003c/span\u003e\u003cspan class=\"s1\"\u003e\u0026#39;api\u0026#39;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"n\"\u003eport_forwards\u003c/span\u003e\u003cspan class=\"o\"\u003e=[\u003c/span\u003e\u003cspan class=\"mi\"\u003e3000\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e \u003cspan class=\"mi\"\u003e40000\u003c/span\u003e\u003cspan class=\"o\"\u003e]\u003c/span\u003e\u003cspan class=\"p\"\u003e)\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eOnce you've done that and Tilt has done its thing, you should be able to connect the debugger in your favorite IDE. Mine is VSCode, so I'll throw in an example launch config. If you're using VSCode, add the following to your \u003ccode\u003elaunch.json\u003c/code\u003e config:\u003c/p\u003e\n\u003cdiv class=\"highlight\"\u003e\u003cpre class=\"chroma\"\u003e\u003ccode class=\"language-json\" data-lang=\"json\"\u003e    \u003cspan class=\"err\"\u003e...\u003c/span\u003e\n\n    \u003cspan class=\"s2\"\u003e\u0026#34;configurations\u0026#34;\u003c/span\u003e\u003cspan class=\"err\"\u003e:\u003c/span\u003e \u003cspan class=\"p\"\u003e[\u003c/span\u003e\n    \u003cspan class=\"p\"\u003e{\u003c/span\u003e\n      \u003cspan class=\"nt\"\u003e\u0026#34;name\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"s2\"\u003e\u0026#34;Attach to Delve\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n      \u003cspan class=\"nt\"\u003e\u0026#34;type\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"s2\"\u003e\u0026#34;go\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n      \u003cspan class=\"nt\"\u003e\u0026#34;request\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"s2\"\u003e\u0026#34;attach\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n      \u003cspan class=\"nt\"\u003e\u0026#34;mode\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"s2\"\u003e\u0026#34;remote\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e,\u003c/span\u003e\n      \u003cspan class=\"nt\"\u003e\u0026#34;port\u0026#34;\u003c/span\u003e\u003cspan class=\"p\"\u003e:\u003c/span\u003e \u003cspan class=\"mi\"\u003e40000\u003c/span\u003e\n    \u003cspan class=\"p\"\u003e}\u003c/span\u003e\n  \u003cspan class=\"p\"\u003e]\u003c/span\u003e\n\u003c/code\u003e\u003c/pre\u003e\u003c/div\u003e\u003cp\u003eOnce that's done, you should be able to run the \u0026quot;Attach to Delve\u0026quot; command in the VSCode debugger tab, and once you've connected, be sure to \u003ccode\u003econtinue\u003c/code\u003e the app execution so that it actually starts the web server we are trying to debug.\u003c/p\u003e\n\u003cp\u003eIf you don't have or want to use an IDE for debugging, you can just as easily connect to the running Delve server via the terminal:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e$ dlv connect localhost:40000 --api-version=2\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eAnd that's that. Be sure to set a breakpoint before you run \u003ccode\u003econtinue\u003c/code\u003e, try this for instance:\u003c/p\u003e\n\u003cpre\u003e\u003ccode\u003e(dlv) break github.com/kriskelly/dating-app-example/internal/graph.Signup\n\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eThat way, when you run \u003ccode\u003econtinue\u003c/code\u003e start the server execution, you can then run the \u003ccode\u003eSignup\u003c/code\u003e mutation in the GraphQL playground and it should hit the breakpoint in the resolver.\u003c/p\u003e\n\u003cp\u003eCongratulations, now you have enough info to debug your Go application. Go forth and correct all the mistakes I've inadvertently put into the example code in these tutorials. And good luck!\u003c/p\u003e"
+}
+</script>
+
+<link rel="preload" as="script" href="/bundle.js?v=1597858436">
+
+<link rel="preconnect" href="https://www.google-analytics.com">
+<link rel="preconnect" href="https://stats.g.doubleclick.net">
+<link rel="preconnect" href="https://www.googleadservices.com">
+<link rel="preload" as="script" href="https://www.googletagmanager.com/gtag/js?id=UA-98394994-1">
+<script src="https://www.googletagmanager.com/gtag/js?id=UA-98394994-1"></script>
+<script>
+  window.dataLayer=window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js',new Date());
+  gtag('config','UA-98394994-1');
+</script>
+
+</head>
+<body>
+
+  <header id="nav" class="header">
+    <div class="ax-l-i max-w-6xl">
+      <div class="ax-logo">
+        <a class="block title" href="/" title="Resumé-Driven Development">Resumé-Driven Development</a>
+      </div>
+      <div class="ax-user">
+        <a class="p-2 w-8 h-8 block text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" target="_blank" rel="noopener nofollow" href="https://www.google.com/search?q=site:example.com" title="Search">
+          <svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M2.67 12.804c0-5.6 4.544-10.134 10.133-10.134s10.134 4.544 10.134 10.134-4.544 10.133-10.134 10.133S2.67 18.393 2.67 12.804zm28.943 16.923l-8.868-8.868c4.287-5.3 3.68-13.012-1.378-17.57S8.564-1.066 3.75 3.75s-5.017 12.558-.46 17.618 12.28 5.665 17.57 1.378l8.868 8.868a1.33 1.33 0 0 0 2.231-.597c.123-.46-.008-.952-.345-1.29h0z"/></svg>
+
+        </a>
+        <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/posts/">
+          Posts
+        </a>
+        <a class="p-2 block text-base leading-none text-raven-500 hover:text-gray-800 focus:text-gray-800 focus:outline-none" href="/about">
+          About
+        </a>
+      </div>
+    </div>
+  
+    
+  </header>
+  
+  <main>
+<div class="default-single">
+  <div class="ax-title ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <h1 class="post-title font-content-title font-normal leading-tight tracking-default text-40">Debugging Go with Delve and Tilt</h1>
+
+      <div class="ax-meta flex items-center mt-5">
+        <div class="flex-grow min-w-0">
+          <div class="flex items-center">
+  <div class="flex-shrink-0">
+    <img
+    class="w-12 h-12 sm:w-14 sm:h-14 object-cover p-3px rounded-full border border-blue-300"
+    src="/images/kris.jpg"
+    alt="Kris Kelly">
+  </div>
+  <div class="flex-shrink-0 ml-2 leading-tight font-content-sans">
+    <a class="block text-sm text-raven-800 hover:text-raven-900 hover:underline focus:underline" target="_blank" rel="noopener nofollow" title="Kris Kelly" href="https://www.kriskelly.me">Kris Kelly</a>
+    <time class="text-sm text-raven-500" datetime="2020-08-19T16:00:32Z">Aug 19, 2020 9:00AM</time>
+  </div>
+</div>
+
+        </div>
+        <div>
+          <div class="flex items-center">
+  <a class="flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Twitter" href="https://twitter.com/intent/tweet?text=Debugging%20Go%20with%20Delve%20and%20Tilt%20by%20%40%25%21s%28%3cnil%3e%29%20https%3a%2f%2fwww.kriskelly.me%2fgo-dlv-tilt-debugging%2f"><svg class="w-6 h-6 fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M32 6.078c-1.2.522-2.458.868-3.78 1.036 1.36-.812 2.398-2.088 2.886-3.626a13.11 13.11 0 0 1-4.16 1.588C25.742 3.794 24.026 3 22.154 3a6.56 6.56 0 0 0-6.556 6.562c0 .52.044 1.02.152 1.496-5.454-.266-10.28-2.88-13.522-6.862-.566.982-.898 2.106-.898 3.316a6.57 6.57 0 0 0 2.914 5.452 6.48 6.48 0 0 1-2.964-.808v.072c0 3.188 2.274 5.836 5.256 6.446-.534.146-1.116.216-1.72.216-.42 0-.844-.024-1.242-.112.85 2.598 3.262 4.508 6.13 4.57a13.18 13.18 0 0 1-8.134 2.798c-.538 0-1.054-.024-1.57-.1C2.906 27.93 6.35 29 10.064 29c12.072 0 18.672-10 18.672-18.668 0-.3-.01-.57-.024-.848C30.014 8.56 31.108 7.406 32 6.078z"/></svg>
+</a>
+  <a class="ml-3 flex-shrink-0 block text-raven-800 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Share on Facebook" href="https://www.facebook.com/dialog/share?app_id=&display=page&href=https%3a%2f%2fwww.kriskelly.me%2fgo-dlv-tilt-debugging%2f"><svg class="w-6 h-6 fill-current" viewBox="-7 -3.5 39 39" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M30.234 0H1.765C.8.001 0 .79 0 1.766v28.47C.001 31.2.79 32 1.766 32h15.328V19.625h-4.156V14.78h4.156v-3.564c0-4.134 2.523-6.384 6.21-6.384 1.766 0 3.284.13 3.726.2v4.32h-2.543c-2.006 0-2.394.953-2.394 2.352v3.085h4.797l-.625 4.844h-4.172V32h8.14C31.21 32 32 31.2 32 30.234V1.765C32 .8 31.21 0 30.234 0z"/></svg>
+</a>
+</div>
+
+        </div>
+      </div>
+    </div>
+  </div><div class="ax-content ax-l-o">
+    <div class="ax-l-i max-w-680">
+      <article class="cdata">
+<p>If you've been following my tutorial series as a handful of you have been, you'll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset. But it's ok to feel feelings. You just have to eventually put those feelings aside, because we have work to do!</p>
+<p>I'm going to make the (potentially unfounded) assumption that you've used a debugger before. That makes my job easier, because I don't have to explain breakpoints, or stepping through code, or the sense of godlike power that courses through your veins when you finally find the bug after many hours of banging your head against the desk. But if you've never experienced that feeling, here's a <a href="https://golangbot.com/debugging-go-delve/">good tutorial on how to actually use the Go debugger</a>.</p>
+<p>The tutorial above is super helpful for actually learning how to debug in Go, so I recommend reading it for the general gist of how to use the debugger itself. I also recommend reading it because I'm too lazy to regurgitate any of it. What I didn't find on the internet though was a concise explanation of how to debug Go via Kubernetes and Tilt, or more generally how to debug Go within a running Docker container. That's the point of this tutorial, and it's (hopefully) short and sweet.</p>
+<p>Anyway, as you might have determined from the link above, the Go debugger is called Delve. You can download it thusly:</p>
+<pre><code>$ go get github.com/go-delve/delve/cmd/dlv
+</code></pre><p>If you've been following along with my tutorial, you can debug the app in your terminal like so:</p>
+<pre><code>$ dlv debug cmd/api.go
+</code></pre><p>But that is assuming we are running and debugging the app via the terminal. In this set of tutorials, we are using a tool called Tilt which helps you manage a Kubernetes cluster for local development. So instead of running <code>dlv debug</code> in our terminal, we need to run our app via the debug server within our Docker container. Once we've set that up correctly, we should be able to connect to the debug server either via the terminal or via our favorite IDE. I'll show you how to do that via the terminal as well as with VSCode, my current favorite editor.</p>
+<p>First things first: we need to modify our <code>Dockerfile</code> to run the dlv debug server. I did this by copying the existing <code>Dockerfile</code> to <code>Dockerfile.debug</code>, a file that is going to match the existing one except for a couple of lines:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile">...<span class="err">
+</span><span class="err"></span><span class="k">COPY</span> go.mod .<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go mod download<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="c"># ADDED THIS LINE BELOW</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go get github.com/go-delve/delve/cmd/dlv<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> . .<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="c"># MODIFIED THE go build COMMAND HERE</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go build -gcflags <span class="s2">&#34;-N -l&#34;</span> -o /app/build/api /app/cmd<span class="err">
+</span><span class="err">
+</span><span class="err"></span>...<span class="err">
+</span></code></pre></div><p>The first line installs Delve in our docker container, and the second line disables compiler optimizations, which will make it easier for us to see what we are debugging.</p>
+<p>Now that we've got our special Dockerfile for debugging, we need to modify our <code>Tiltfile</code> to use the new Dockerfile and run the Delve debug server. If you've been following the tutorial, you can add something like this to your <code>Tiltfile</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-ruby" data-lang="ruby"><span class="n">docker_build_with_restart</span><span class="p">(</span><span class="s1">&#39;dating-app/api&#39;</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span>
+    <span class="n">dockerfile</span><span class="o">=</span><span class="s1">&#39;./Dockerfile.debug&#39;</span><span class="p">,</span>
+    <span class="n">entrypoint</span><span class="o">=</span><span class="s1">&#39;$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api&#39;</span><span class="p">,</span>
+    <span class="n">ignore</span><span class="o">=[</span><span class="s1">&#39;./Dockerfile&#39;</span><span class="p">,</span> <span class="s1">&#39;.git&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="n">live_update</span><span class="o">=[</span>
+        <span class="n">sync</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;/app&#39;</span><span class="p">),</span>
+        <span class="n">run</span><span class="p">(</span><span class="s1">&#39;go build -gcflags &#34;-N -l&#34; -o /app/build/api /app/cmd&#39;</span><span class="p">),</span>
+    <span class="o">]</span>
+<span class="p">)</span>
+<span class="o">...</span>
+</code></pre></div><p>This will replace the earlier call to <code>docker_build_with_restart()</code> that we had in there before. The difference between the earlier one and this one is:</p>
+<ul>
+<li>Using the new dockerfile <code>dockerfile='./Dockerfile.debug'</code></li>
+<li>Running the Delve server instead of the app by itself: <code>entrypoint='$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api'</code></li>
+<li>Changing the <code>go build</code> command to run without compiler optimizations, same way we had it in the new Dockerfile</li>
+</ul>
+<p>Here we run the Delve server on port 40000, so we need to make sure that that port is exposed properly so that we can access it from outside the Kubernetes cluster. I've got my exposed ports listed in the <code>deployments/api.yaml</code> file, so go ahead and add the appropriate port in there:</p>
+<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml"><span class="k">spec</span><span class="p">:</span><span class="w">
+</span><span class="w">  </span><span class="k">containers</span><span class="p">:</span><span class="w">
+</span><span class="w">    </span>- <span class="k">name</span><span class="p">:</span><span class="w"> </span>api<span class="w">
+</span><span class="w">      </span><span class="k">image</span><span class="p">:</span><span class="w"> </span>dating-app/api<span class="w">
+</span><span class="w">      </span><span class="k">command</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;/app/build/api&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w">      </span><span class="k">ports</span><span class="p">:</span><span class="w">
+</span><span class="w">        </span>- <span class="k">containerPort</span><span class="p">:</span><span class="w"> </span><span class="m">3000</span><span class="w">
+</span><span class="w">        </span>- <span class="k">containerPort</span><span class="p">:</span><span class="w"> </span><span class="m">40000</span><span class="w"> </span><span class="c"># &lt;-- Add this</span><span class="w">
+</span></code></pre></div><p>You'll also need to make sure the port is exposed on the Kubernetes resource in Tilt, so go ahead and add it there as well:</p>
+<div class="highlight"><pre class="chroma"><code class="language-ruby" data-lang="ruby"><span class="c1"># Change port_forwards to include 40000</span>
+<span class="n">k8s_resource</span><span class="p">(</span><span class="s1">&#39;api&#39;</span><span class="p">,</span> <span class="n">port_forwards</span><span class="o">=[</span><span class="mi">3000</span><span class="p">,</span> <span class="mi">40000</span><span class="o">]</span><span class="p">)</span>
+</code></pre></div><p>Once you've done that and Tilt has done its thing, you should be able to connect the debugger in your favorite IDE. Mine is VSCode, so I'll throw in an example launch config. If you're using VSCode, add the following to your <code>launch.json</code> config:</p>
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json">    <span class="err">...</span>
+
+    <span class="s2">&#34;configurations&#34;</span><span class="err">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Attach to Delve&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;go&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;request&#34;</span><span class="p">:</span> <span class="s2">&#34;attach&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;mode&#34;</span><span class="p">:</span> <span class="s2">&#34;remote&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;port&#34;</span><span class="p">:</span> <span class="mi">40000</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+</code></pre></div><p>Once that's done, you should be able to run the &quot;Attach to Delve&quot; command in the VSCode debugger tab, and once you've connected, be sure to <code>continue</code> the app execution so that it actually starts the web server we are trying to debug.</p>
+<p>If you don't have or want to use an IDE for debugging, you can just as easily connect to the running Delve server via the terminal:</p>
+<pre><code>$ dlv connect localhost:40000 --api-version=2
+</code></pre><p>And that's that. Be sure to set a breakpoint before you run <code>continue</code>, try this for instance:</p>
+<pre><code>(dlv) break github.com/kriskelly/dating-app-example/internal/graph.Signup
+</code></pre><p>That way, when you run <code>continue</code> start the server execution, you can then run the <code>Signup</code> mutation in the GraphQL playground and it should hit the breakpoint in the resolver.</p>
+<p>Congratulations, now you have enough info to debug your Go application. Go forth and correct all the mistakes I've inadvertently put into the example code in these tutorials. And good luck!</p>
+
+      </article>
+      
+
+      
+<div id="disqus_thread" class="mt-12"></div>
+<script>
+var disqus_config = function () {
+  this.page.url = "https://www.kriskelly.me/go-dlv-tilt-debugging/";
+  this.page.identifier = "137c9acd27ea198ef10027c9463fdb16";
+  this.page.title = "Debugging Go with Delve and Tilt";
+};
+
+(function() {
+  window.setTimeout(function() {
+    var d = document;
+    if (['localhost', '127.0.0.1'].indexOf(window.location.hostname) != -1) {
+      d.getElementById('disqus_thread').innerHTML = '<div class="text-center">Disqus disabled during local preview.</div>';
+      return;
+    }
+
+    var s = d.createElement('script');
+    s.src = 'https://kriskelly-me.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    s.setAttribute("defer", "");
+    d.body.appendChild(s);
+  }, 2500);
+})();
+</script>
+
+    </div>
+  </div>
+</div>
+
+  </main>
+  <footer class="footer">
+  <div class="ax-l-i max-w-6xl">
+    <nav class="flex items-center justify-center">
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/posts/">Posts</a>
+      <a class="ml-3 first:ml-0 text-sm text-gray-600 hover:text-gray-800" href="/about/">About</a>
+    </nav>
+    <div class="footer-social flex items-center justify-center mt-4">
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Github" href="https://github.com/kriskelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M15.998 0C7.164 0 0 7.35 0 16.417 0 23.67 4.584 29.82 10.944 31.994c.8.15 1.092-.356 1.092-.79l-.022-2.792c-4.45.99-5.4-2.202-5.4-2.202-.726-1.896-1.776-2.4-1.776-2.4-1.454-1.018.108-.998.108-.998 1.606.117 2.45 1.693 2.45 1.693 1.428 2.507 3.746 1.784 4.658 1.363.144-1.06.558-1.784 1.016-2.195-3.552-.415-7.288-1.823-7.288-8.113 0-1.792.624-3.258 1.648-4.406-.166-.415-.714-2.085.156-4.344 0 0 1.344-.44 4.4 1.683 1.276-.364 2.644-.546 4.006-.552a14.98 14.98 0 0 1 4.006.554C23.062 6.37 24.404 6.8 24.404 6.8c.872 2.26.324 3.93.16 4.344 1.026 1.148 1.644 2.614 1.644 4.406 0 6.306-3.74 7.694-7.304 8.1.574.507 1.086 1.51 1.086 3.04l-.02 4.503c0 .44.288.95 1.1.788C27.42 29.817 32 23.667 32 16.417 32 7.35 24.836 0 15.998 0z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="LinkedIn" href="https://www.linkedin.com/in/kristopherbkelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M29.692 0H2.308A2.31 2.31 0 0 0 0 2.308v27.384A2.31 2.31 0 0 0 2.308 32h27.384A2.31 2.31 0 0 0 32 29.692V2.308A2.31 2.31 0 0 0 29.692 0zM11.35 24.188H7.454V12.464h3.897v11.723zM9.402 10.863h-.025c-1.308 0-2.153-.9-2.153-2.025 0-1.15.872-2.026 2.205-2.026s2.153.875 2.18 2.026c0 1.125-.846 2.025-2.205 2.025zm16 13.324h-3.896v-6.272c0-1.576-.564-2.65-1.974-2.65-1.076 0-1.717.725-2 1.425-.103.25-.128.6-.128.95v6.547h-3.896V12.464h3.896v1.66c.518-.8 1.444-1.935 3.512-1.935 2.564 0 4.486 1.676 4.486 5.276v6.722z"/></svg></a>
+      <a class="block mx-3 w-6 h-6 text-raven-700 hover:text-raven-900" target="_blank" rel="noopener nofollow" title="Instagram" href="https://instagram.com/kriskellykriskellykriskelly"><svg class="fill-current" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M4 32h24c2.258 0 4-1.742 4-4V4c0-2.26-1.742-4-4-4H4C1.74 0 0 1.74 0 4v24c0 2.258 1.74 4 4 4zM22 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5zm-5.977 4.714c3.55 0 6.425 2.787 6.425 6.226s-2.876 6.226-6.425 6.226S9.6 19.377 9.6 15.94s2.878-6.226 6.423-6.226zM4 13l2.493.542c-.274.89-.413 1.815-.413 2.745 0 5.318 4.454 9.634 9.943 9.634s9.944-4.315 9.944-9.634c0-.955-.145-1.875-.412-2.745L28 13v14c0 .7-.3 1-1 1H5c-.7 0-1-.3-1-1V13z"/></svg></a>
+    </div>
+
+    <div class="footer-copyright text-sm text-center text-gray-500 mt-4">
+      &#169; 2020-2020 Kris Kelly
+    </div>
+    <div class="text-sm sm:text-xs text-center text-gray-500 mt-2">
+      Powered by <a href="https://www.axiomtheme.com/?utm_source=theme-footer&utm_medium=website&utm_campaign=referral">Axiom</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/bundle.js?v=1597858436"></script>
+
+
+</body>
+</html>

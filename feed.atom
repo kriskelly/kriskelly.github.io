@@ -10,9 +10,91 @@
   <rights>Kris Kelly</rights>
   <icon>https://www.kriskelly.me/image/brand/icon-1-1.png</icon>
   <logo>https://www.kriskelly.me/image/brand/icon-2-1.png</logo>
-  <updated>2020-08-12T15:52:57Z</updated>
+  <updated>2020-08-19T17:33:56Z</updated>
   <link rel="self" type="application/atom+xml" href="https://www.kriskelly.me/feed.atom" hreflang="en-us"/>
   <link rel="alternate" type="text/html" href="https://www.kriskelly.me/" hreflang="en-us"/>
+  <entry>
+    <title>Debugging Go with Delve and Tilt</title>
+    <author>
+      <name>Kris Kelly</name>
+      <uri></uri>
+    </author>
+    <id>https://www.kriskelly.me/go-dlv-tilt-debugging/</id>
+    <updated>2020-08-19T16:00:32Z</updated>
+    <published>2020-08-19T16:00:32Z</published>
+    <content type="html"><![CDATA[<p>If you've been following my tutorial series as a handful of you have been, you'll probably have run into a few WTF moments here and there; the kind of moments where you just want to give up and go play non-violent video games, or sing sad karaoke songs by yourself, or whatever it is that people do when they are upset. But it's ok to feel feelings. You just have to eventually put those feelings aside, because we have work to do!</p>
+<p>I'm going to make the (potentially unfounded) assumption that you've used a debugger before. That makes my job easier, because I don't have to explain breakpoints, or stepping through code, or the sense of godlike power that courses through your veins when you finally find the bug after many hours of banging your head against the desk. But if you've never experienced that feeling, here's a <a href="https://golangbot.com/debugging-go-delve/">good tutorial on how to actually use the Go debugger</a>.</p>
+<p>The tutorial above is super helpful for actually learning how to debug in Go, so I recommend reading it for the general gist of how to use the debugger itself. I also recommend reading it because I'm too lazy to regurgitate any of it. What I didn't find on the internet though was a concise explanation of how to debug Go via Kubernetes and Tilt, or more generally how to debug Go within a running Docker container. That's the point of this tutorial, and it's (hopefully) short and sweet.</p>
+<p>Anyway, as you might have determined from the link above, the Go debugger is called Delve. You can download it thusly:</p>
+<pre><code>$ go get github.com/go-delve/delve/cmd/dlv
+</code></pre><p>If you've been following along with my tutorial, you can debug the app in your terminal like so:</p>
+<pre><code>$ dlv debug cmd/api.go
+</code></pre><p>But that is assuming we are running and debugging the app via the terminal. In this set of tutorials, we are using a tool called Tilt which helps you manage a Kubernetes cluster for local development. So instead of running <code>dlv debug</code> in our terminal, we need to run our app via the debug server within our Docker container. Once we've set that up correctly, we should be able to connect to the debug server either via the terminal or via our favorite IDE. I'll show you how to do that via the terminal as well as with VSCode, my current favorite editor.</p>
+<p>First things first: we need to modify our <code>Dockerfile</code> to run the dlv debug server. I did this by copying the existing <code>Dockerfile</code> to <code>Dockerfile.debug</code>, a file that is going to match the existing one except for a couple of lines:</p>
+<div class="highlight"><pre class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile">...<span class="err">
+</span><span class="err"></span><span class="k">COPY</span> go.mod .<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go mod download<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="c"># ADDED THIS LINE BELOW</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go get github.com/go-delve/delve/cmd/dlv<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> . .<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="c"># MODIFIED THE go build COMMAND HERE</span><span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go build -gcflags <span class="s2">&#34;-N -l&#34;</span> -o /app/build/api /app/cmd<span class="err">
+</span><span class="err">
+</span><span class="err"></span>...<span class="err">
+</span></code></pre></div><p>The first line installs Delve in our docker container, and the second line disables compiler optimizations, which will make it easier for us to see what we are debugging.</p>
+<p>Now that we've got our special Dockerfile for debugging, we need to modify our <code>Tiltfile</code> to use the new Dockerfile and run the Delve debug server. If you've been following the tutorial, you can add something like this to your <code>Tiltfile</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-ruby" data-lang="ruby"><span class="n">docker_build_with_restart</span><span class="p">(</span><span class="s1">&#39;dating-app/api&#39;</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="p">,</span>
+    <span class="n">dockerfile</span><span class="o">=</span><span class="s1">&#39;./Dockerfile.debug&#39;</span><span class="p">,</span>
+    <span class="n">entrypoint</span><span class="o">=</span><span class="s1">&#39;$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api&#39;</span><span class="p">,</span>
+    <span class="n">ignore</span><span class="o">=[</span><span class="s1">&#39;./Dockerfile&#39;</span><span class="p">,</span> <span class="s1">&#39;.git&#39;</span><span class="o">]</span><span class="p">,</span>
+    <span class="n">live_update</span><span class="o">=[</span>
+        <span class="n">sync</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">,</span> <span class="s1">&#39;/app&#39;</span><span class="p">),</span>
+        <span class="n">run</span><span class="p">(</span><span class="s1">&#39;go build -gcflags &#34;-N -l&#34; -o /app/build/api /app/cmd&#39;</span><span class="p">),</span>
+    <span class="o">]</span>
+<span class="p">)</span>
+<span class="o">...</span>
+</code></pre></div><p>This will replace the earlier call to <code>docker_build_with_restart()</code> that we had in there before. The difference between the earlier one and this one is:</p>
+<ul>
+<li>Using the new dockerfile <code>dockerfile='./Dockerfile.debug'</code></li>
+<li>Running the Delve server instead of the app by itself: <code>entrypoint='$GOPATH/bin/dlv --listen=:40000 --api-version=2 --headless=true exec /app/build/api'</code></li>
+<li>Changing the <code>go build</code> command to run without compiler optimizations, same way we had it in the new Dockerfile</li>
+</ul>
+<p>Here we run the Delve server on port 40000, so we need to make sure that that port is exposed properly so that we can access it from outside the Kubernetes cluster. I've got my exposed ports listed in the <code>deployments/api.yaml</code> file, so go ahead and add the appropriate port in there:</p>
+<div class="highlight"><pre class="chroma"><code class="language-yaml" data-lang="yaml"><span class="k">spec</span><span class="p">:</span><span class="w">
+</span><span class="w">  </span><span class="k">containers</span><span class="p">:</span><span class="w">
+</span><span class="w">    </span>- <span class="k">name</span><span class="p">:</span><span class="w"> </span>api<span class="w">
+</span><span class="w">      </span><span class="k">image</span><span class="p">:</span><span class="w"> </span>dating-app/api<span class="w">
+</span><span class="w">      </span><span class="k">command</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&#34;/app/build/api&#34;</span><span class="p">]</span><span class="w">
+</span><span class="w">      </span><span class="k">ports</span><span class="p">:</span><span class="w">
+</span><span class="w">        </span>- <span class="k">containerPort</span><span class="p">:</span><span class="w"> </span><span class="m">3000</span><span class="w">
+</span><span class="w">        </span>- <span class="k">containerPort</span><span class="p">:</span><span class="w"> </span><span class="m">40000</span><span class="w"> </span><span class="c"># &lt;-- Add this</span><span class="w">
+</span></code></pre></div><p>You'll also need to make sure the port is exposed on the Kubernetes resource in Tilt, so go ahead and add it there as well:</p>
+<div class="highlight"><pre class="chroma"><code class="language-ruby" data-lang="ruby"><span class="c1"># Change port_forwards to include 40000</span>
+<span class="n">k8s_resource</span><span class="p">(</span><span class="s1">&#39;api&#39;</span><span class="p">,</span> <span class="n">port_forwards</span><span class="o">=[</span><span class="mi">3000</span><span class="p">,</span> <span class="mi">40000</span><span class="o">]</span><span class="p">)</span>
+</code></pre></div><p>Once you've done that and Tilt has done its thing, you should be able to connect the debugger in your favorite IDE. Mine is VSCode, so I'll throw in an example launch config. If you're using VSCode, add the following to your <code>launch.json</code> config:</p>
+<div class="highlight"><pre class="chroma"><code class="language-json" data-lang="json">    <span class="err">...</span>
+
+    <span class="s2">&#34;configurations&#34;</span><span class="err">:</span> <span class="p">[</span>
+    <span class="p">{</span>
+      <span class="nt">&#34;name&#34;</span><span class="p">:</span> <span class="s2">&#34;Attach to Delve&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;type&#34;</span><span class="p">:</span> <span class="s2">&#34;go&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;request&#34;</span><span class="p">:</span> <span class="s2">&#34;attach&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;mode&#34;</span><span class="p">:</span> <span class="s2">&#34;remote&#34;</span><span class="p">,</span>
+      <span class="nt">&#34;port&#34;</span><span class="p">:</span> <span class="mi">40000</span>
+    <span class="p">}</span>
+  <span class="p">]</span>
+</code></pre></div><p>Once that's done, you should be able to run the &quot;Attach to Delve&quot; command in the VSCode debugger tab, and once you've connected, be sure to <code>continue</code> the app execution so that it actually starts the web server we are trying to debug.</p>
+<p>If you don't have or want to use an IDE for debugging, you can just as easily connect to the running Delve server via the terminal:</p>
+<pre><code>$ dlv connect localhost:40000 --api-version=2
+</code></pre><p>And that's that. Be sure to set a breakpoint before you run <code>continue</code>, try this for instance:</p>
+<pre><code>(dlv) break github.com/kriskelly/dating-app-example/internal/graph.Signup
+</code></pre><p>That way, when you run <code>continue</code> start the server execution, you can then run the <code>Signup</code> mutation in the GraphQL playground and it should hit the breakpoint in the resolver.</p>
+<p>Congratulations, now you have enough info to debug your Go application. Go forth and correct all the mistakes I've inadvertently put into the example code in these tutorials. And good luck!</p>]]></content>
+  </entry>
   <entry>
     <title>Resumé-Driven Development Part 3: Dgraph because it sounds cool</title>
     <author>
